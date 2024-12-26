@@ -1,0 +1,12 @@
+graft-api	graft.txt	/*graft-api*
+graft-contents	graft.txt	/*graft-contents*
+graft-installation	graft.txt	/*graft-installation*
+graft-introduction	graft.txt	/*graft-introduction*
+graft-specification	graft.txt	/*graft-specification*
+graft-usage	graft.txt	/*graft-usage*
+graft.get_plugin_dir()	graft.txt	/*graft.get_plugin_dir()*
+graft.get_plugin_name()	graft.txt	/*graft.get_plugin_name()*
+graft.load()	graft.txt	/*graft.load()*
+graft.register()	graft.txt	/*graft.register()*
+graft.setup()	graft.txt	/*graft.setup()*
+graft.txt	graft.txt	/*graft.txt*

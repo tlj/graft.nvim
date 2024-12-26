@@ -1,0 +1,166 @@
+*graft.txt*  Minimal Neovim Plugin Manager with Git Submodules
+
+Author:  Thomas L. Johnsen <https://github.com/tlj>
+License: Same terms as Vim itself (see |license|)
+
+==============================================================================
+CONTENTS                                                          *graft-contents*
+
+    1. Introduction .................... |graft-introduction|
+    2. Installation .................... |graft-installation|
+    3. Usage .......................... |graft-usage|
+    4. Plugin Specification ............ |graft-specification|
+    5. API Reference ................... |graft-api|
+
+==============================================================================
+1. INTRODUCTION                                              *graft-introduction*
+
+Graft is a minimal plugin manager for Neovim that handles lazy loading and
+configuration management using git submodules. It provides a simple yet powerful
+API for managing plugin loading and configuration.
+
+Features:~
+    • Lazy loading via multiple triggers:
+        - Commands
+        - Events
+        - Filetypes
+        - Keymaps
+    • Plugin dependency management
+    • Git submodule-based installation
+    • Zero dependencies
+    • Simple configuration API
+
+==============================================================================
+2. INSTALLATION                                              *graft-installation*
+
+Add Graft as a git submodule in your Neovim configuration:
+>
+    git -C $(echo stdpath("config")) submodule add \
+        https://github.com/tlj/graft.nvim pack/vendor/start/graft.nvim
+<
+
+Add other plugins similarly:
+>
+    git -C $(echo stdpath("config")) submodule add \
+        https://github.com/author/plugin pack/vendor/opt/plugin
+<
+
+==============================================================================
+3. USAGE                                                            *graft-usage*
+
+Basic setup in your init.lua:
+>
+    local ok, graft = pcall(require, "graft")
+    if not ok then
+      vim.notify("Graft is not installed")
+      return
+    end
+
+    graft.setup({
+      -- Plugins to load immediately
+      now = {
+        { "catppuccin/nvim", { name = "catppuccin", setup = function() vim.cmd("colorscheme catppuccin-mocha") end } },
+      },
+      
+      -- Plugins to load lazily
+      later = {
+        -- Load on command
+        { "telescope.nvim", { cmds = { "Telescope" }, requires = { "plenary.nvim" } } },
+        
+        -- Load on keymap
+        { "oil.nvim", { keys = { ["<leader>tt"] = { cmd = function() require("oil").open_float() end, desc = "Open Oil file browser" } } } },
+        
+        -- Load on filetype
+        { "rust-tools.nvim", { ft = { "rust" } } },
+        
+        -- Load on events
+        { "lualine.nvim", { events = { "VimEnter" } } }
+      }
+    })
+<
+
+==============================================================================
+4. PLUGIN SPECIFICATION                                    *graft-specification*
+
+Each plugin can have the following specification options:
+
+name~
+    Plugin name if different from repo name
+    Type: string
+
+dir~
+    Directory name if different from repo name
+    Type: string
+
+settings~
+    Table passed to plugin's setup() function
+    Type: table
+
+requires~
+    Dependencies to load before this plugin
+    Type: string[] | table[]
+
+cmds~
+    List of commands that trigger lazy loading
+    Type: string[]
+
+events~
+    List of events that trigger loading
+    Type: string[]
+
+pattern~
+    Pattern for event matching
+    Type: string
+
+after~
+    Load after specified plugins are loaded
+    Type: string[]
+
+ft~
+    Filetypes that trigger loading
+    Type: string[]
+
+keys~
+    Keymaps with commands and descriptions
+    Type: table<string, {cmd: string|function, desc: string}>
+
+setup~
+    Custom setup function
+    Type: function
+
+==============================================================================
+5. API REFERENCE                                                     *graft-api*
+
+graft.setup({config})                                            *graft.setup()*
+    Initialize plugin configuration
+    Parameters: ~
+        {config}  table   Configuration with 'now' and 'later' sections
+
+graft.load({repo})                                               *graft.load()*
+    Load a plugin and its dependencies
+    Parameters: ~
+        {repo}    string  Repository name of plugin to load
+
+graft.register({repo}, {spec})                                *graft.register()*
+    Register a plugin for lazy loading
+    Parameters: ~
+        {repo}    string  Repository name
+        {spec}    table   Plugin specification (optional)
+
+graft.get_plugin_name({repo})                          *graft.get_plugin_name()*
+    Get plugin name from repository URL
+    Parameters: ~
+        {repo}    string  Repository URL
+    Returns: ~
+        string            Plugin name
+
+graft.get_plugin_dir({repo})                            *graft.get_plugin_dir()*
+    Get plugin directory from repository URL
+    Parameters: ~
+        {repo}    string  Repository URL
+    Returns: ~
+        string            Plugin directory name
+
+==============================================================================
+vim:ft=help:tw=78:ts=8:noet:fen:fdl=0:fdm=marker:
+
