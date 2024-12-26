@@ -14,7 +14,7 @@ A minimal Neovim plugin manager that handles lazy loading and configuration mana
 Add Graft as a git submodule in your Neovim configuration:
 
 ```bash
-git -C $(echo stdpath("config")) submodule add https://github.com/tlj/graft.nvim pack/vendor/start/graft.nvim
+:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/tlj/graft.nvim pack/vendor/start/graft.nvim'
 ```
 
 ## Usage
@@ -72,16 +72,16 @@ Each plugin can have the following specification options:
 Add plugins as git submodules:
 
 ```bash
-git -C $(echo stdpath("config")) submodule add https://github.com/author/plugin pack/vendor/start/plugin
+:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/author/plugin pack/vendor/start/plugin'
 # or for opt plugins
-git -C $(echo stdpath("config")) submodule add https://github.com/author/plugin pack/vendor/opt/plugin
+:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/author/plugin pack/vendor/opt/plugin'
 ```
 
 Remove plugins:
 
 ```bash
-git -C $(echo stdpath("config")) submodule deinit -f pack/vendor/start/plugin
-git -C $(echo stdpath("config")) rm -f pack/vendor/start/plugin
+:execute '!git -C ' .. stdpath('config') .. ' submodule deinit -f pack/vendor/opt/plugin'
+:execute '!git -C ' .. stdpath('config') .. ' rm -f pack/vendor/opt/plugin'
 ```
 
 ## Philosophy and Goals
