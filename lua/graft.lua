@@ -1,10 +1,41 @@
 ---@class graft.Graft
 local M = {}
 
+---@type table<string, function[]>
+M.hooks = {
+	pre_setup = {},
+	post_setup = {},
+	post_register = {},
+	pre_load = {},
+	post_load = {},
+}
+
+---Register a callback for a specific hook
+---@param hook string The hook name
+---@param callback function The callback function
+M.register_hook = function(hook, callback)
+	if not M.hooks[hook] then
+		M.hooks[hook] = {}
+	end
+	table.insert(M.hooks[hook], callback)
+end
+
+---Run all callbacks for a specific hook
+---@param hook string The hook name
+---@param ... any Arguments to pass to callbacks
+M.run_hooks = function(hook, ...)
+	for _, callback in ipairs(M.hooks[hook] or {}) do
+		callback(...)
+	end
+end
+
 ---@class graft.Spec
 ---@field repo? string The repo for the plugin - automatically set from the defined repo in the setup
+---@field type? string The type of plugin ("now" or "later")
 ---@field name? string This is the name of the plugin if the module name is different from the url name
 ---@field dir? string This is the directory name of the plugin
+---@field branch? string The branch to follow
+---@field tag? string The tag to check out
 ---@field settings? table The settings for this plugin, will be sent to setup() function
 ---@field requires? (string | graft.Plugin)[] A list of repos which has to be loaded before this one
 ---@field cmds? string[] A list of commands which will load the plugin
@@ -61,6 +92,7 @@ M.register = function(repo, spec)
 	spec.repo = repo
 	spec.name = spec.name or M.get_plugin_name(repo)
 	spec.dir = spec.dir or M.get_plugin_dir(repo)
+	spec.type = spec.type or "later"
 
 	-- Register the plugin in our lookup table
 	M.plugins[repo] = spec
@@ -190,23 +222,33 @@ end
 -- Set up all the plugins and load the now-plugins
 ---@param config graft.Setup
 M.setup = function(config)
+	-- Run pre-setup hooks
+	M.run_hooks("pre_setup", config)
+
 	-- Validate the config
 	-- require("graft.validate").validate_setup(config)
 
 	-- Register all plugins before we load any, in case there is config set for a required
 	-- plugin which is defined later
 	for _, plugin in ipairs(config.now or {}) do
-		M.register(plugin[1] or "", plugin[2] or {})
+		local opts = plugin[2] or {}
+		opts.type = "now"
+		M.register(plugin[1] or "", opts)
 	end
 
 	for _, plugin in ipairs(config.later or {}) do
 		M.register(plugin[1] or "", plugin[2] or {})
 	end
 
+	M.run_hooks("post_register", M.plugins)
+
 	-- Load now-plugins immediately
 	for _, plugin in ipairs(config.now or {}) do
 		M.load(plugin[1])
 	end
+
+	-- Run post-setup hooks
+	M.run_hooks("post_setup", config)
 end
 
 -- Add the plugin path to either runtimepath or packadd
@@ -248,6 +290,9 @@ M.load = function(repo)
 		return
 	end
 
+	-- Run pre-load hooks
+	M.run_hooks("pre_load", repo)
+
 	-- Don't load the same plugin twice
 	if M.loaded[repo] then
 		return
@@ -287,6 +332,9 @@ M.load = function(repo)
 	-- Trigger an event saying plugin is loaded, so other plugins
 	-- which are waiting for us can trigger.
 	vim.api.nvim_exec_autocmds("User", { pattern = repo })
+
+	-- Run post-load hooks
+	M.run_hooks("post_load", repo)
 end
 
 return M
