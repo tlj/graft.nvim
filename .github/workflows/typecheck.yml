@@ -1,5 +1,5 @@
 ---
-name: Type Check Code Base
+name: Type check
 on:
   pull_request: ~
   push:
@@ -8,12 +8,13 @@ on:
 
 jobs:
   build:
-    name: Type Check Code Base
+    name: Type check
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout Code
-        uses: actions/checkout@v3
-
-      - name: Type Check Code Base
-        uses: mrcjkb/lua-typecheck-action@v0
+      - uses: actions/checkout@v4
+      - uses: stevearc/nvim-typecheck-action@v2
+        with:
+          configpath: .github/workflows/.luarc.json
+          directories: |
+            lua
