@@ -16,5 +16,4 @@ jobs:
       - uses: stevearc/nvim-typecheck-action@v2
         with:
           configpath: .github/workflows/.luarc.json
-          directories: |
-            lua
+          path: lua
