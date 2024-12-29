@@ -36,13 +36,13 @@ Features:~
 Add Graft as a git submodule in your Neovim configuration:
 >
     git -C $(echo stdpath("config")) submodule add \
-        https://github.com/tlj/graft.nvim pack/vendor/start/graft.nvim
+        https://github.com/tlj/graft.nvim pack/graft/start/graft.nvim
 <
 
 Add other plugins similarly:
 >
     git -C $(echo stdpath("config")) submodule add \
-        https://github.com/author/plugin pack/vendor/opt/plugin
+        https://github.com/author/plugin pack/graft/opt/plugin
 <
 
 ==============================================================================
