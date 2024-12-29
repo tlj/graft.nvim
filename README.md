@@ -1,7 +1,7 @@
 # Graft.nvim
 
-https://github.com/tlj/graft.nvim/actions/workflows/tests.yml/badge.svg
-https://github.com/tlj/graft.nvim/actions/workflows/typecheck.yml/badge.svg
+![tests](https://github.com/tlj/graft.nvim/actions/workflows/tests.yml/badge.svg)
+![typecheck](https://github.com/tlj/graft.nvim/actions/workflows/typecheck.yml/badge.svg)
 
 A minimal Neovim plugin manager that handles lazy loading and configuration management using git submodules.
 
