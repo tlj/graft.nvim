@@ -13,11 +13,14 @@ M.hooks = {
 ---Register a callback for a specific hook
 ---@param hook string The hook name
 ---@param callback function The callback function
+---@return boolean
 M.register_hook = function(hook, callback)
 	if not M.hooks[hook] then
-		M.hooks[hook] = {}
+		return false
 	end
+
 	table.insert(M.hooks[hook], callback)
+	return true
 end
 
 ---Run all callbacks for a specific hook

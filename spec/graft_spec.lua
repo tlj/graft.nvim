@@ -1,5 +1,6 @@
 local assert = require("luassert")
 local stub = require("luassert.stub")
+local spy = require("luassert.spy")
 
 describe("Register plugin", function()
 	local notify_spy
@@ -18,6 +19,7 @@ describe("Register plugin", function()
 		cmd_stub = stub(vim, "cmd")
 		graft = require("graft")
 		graft.plugins = {}
+		graft.loaded = {}
 	end)
 
 	after_each(function()
@@ -203,12 +205,114 @@ describe("Register plugin", function()
 			["statusline"] = { name = "statusline", dir = "", repo = "statusline", type = "now" },
 			-- we should be able to load a plugin from a local directory outside of
 			-- neovim config by adding it to runtimepath
-			["custom-plugin"] = { name = "custom-plugin", dir = "~/src/custom-plugin.nvim", repo = "custom-plugin", type = "now" },
+			["custom-plugin"] = {
+				name = "custom-plugin",
+				dir = "~/src/custom-plugin.nvim",
+				repo = "custom-plugin",
+				type = "now",
+			},
 			-- plugins from [later] is also added to plugins list
-			["tlj/graft-ext.nvim"] = { name = "graft_ext", dir = "graft-ext.nvim", repo = "tlj/graft-ext.nvim", type = "later" },
+			["tlj/graft-ext.nvim"] = {
+				name = "graft_ext",
+				dir = "graft-ext.nvim",
+				repo = "tlj/graft-ext.nvim",
+				type = "later",
+			},
 		}, graft.plugins)
 
 		assert.spy(notify_spy).was_called(1)
 		assert.spy(load_spy).was_called(5)
+
+		load_spy:revert()
+	end)
+end)
+
+describe("Using hooks", function()
+	local graft
+	local empty_hooks = { pre_setup = {}, post_setup = {}, post_register = {}, pre_load = {}, post_load = {} }
+	local callback = function() vim.print("Callback called") end
+
+	before_each(function()
+		graft = require("graft")
+		graft.loaded = {}
+		graft.plugins = {}
+		graft.hooks = { pre_setup = {}, post_setup = {}, post_register = {}, pre_load = {}, post_load = {} }
+	end)
+
+	after_each(function()
+		graft.loaded = {}
+		graft.plugins = {}
+		graft.hooks = { pre_setup = {}, post_setup = {}, post_register = {}, pre_load = {}, post_load = {} }
+	end)
+
+	it("has empty hooks by default", function() assert.are.same(empty_hooks, graft.hooks) end)
+
+	it("returns false when registering invalid hook", function()
+		local result = graft.register_hook("cook_it", callback)
+
+		assert.is_false(result)
+		assert.are.same(empty_hooks, graft.hooks)
+	end)
+
+	describe("registers hook", function()
+		for k, _ in pairs(empty_hooks) do
+			it(k, function()
+				local result = graft.register_hook(k, callback)
+				assert.is_true(result)
+				assert.is.same(graft.hooks[k], { callback })
+			end)
+		end
+
+		it("calls setup hooks", function()
+			local hooks = {
+				pre_setup = function(plugins) end,
+				post_setup = function(plugins) end,
+				post_register = function(plugins) end,
+			}
+
+			spy.on(hooks, "post_register")
+			spy.on(hooks, "pre_setup")
+			spy.on(hooks, "post_setup")
+
+			graft.register_hook("post_register", hooks.post_register)
+			graft.register_hook("pre_setup", hooks.pre_setup)
+			graft.register_hook("post_setup", hooks.post_setup)
+
+			local config = { later = { { "tlj/graft.nvim" } } }
+			graft.setup(config)
+
+			assert.spy(hooks.post_register).was_called_with({
+				["tlj/graft.nvim"] = {
+					dir = "graft.nvim",
+					name = "graft",
+					repo = "tlj/graft.nvim",
+					type = "later",
+				},
+			})
+
+			assert.spy(hooks.pre_setup).was_called_with(config)
+			assert.spy(hooks.post_setup).was_called_with(config)
+		end)
+
+		it("calls load hooks", function()
+			local hooks = {
+				pre_load = function(repo) end,
+				post_load = function(repo) end,
+			}
+
+			spy.on(hooks, "pre_load")
+			spy.on(hooks, "post_load")
+
+			graft.register_hook("pre_load", hooks.pre_load)
+			graft.register_hook("post_load", hooks.post_load)
+
+			local config = { later = { { "fake" } } }
+			graft.setup(config)
+
+			graft.load("fake")
+
+			assert.spy(hooks.pre_load).was_called_with("fake")
+			assert.spy(hooks.post_load).was_called_with("fake")
+		end)
 	end)
 end)

@@ -1,5 +1,8 @@
 # Graft.nvim
 
+![tests](https://github.com/tlj/graft.nvim/actions/workflows/tests.yml/badge.svg)
+![typecheck](https://github.com/tlj/graft.nvim/actions/workflows/typecheck.yml/badge.svg)
+
 A minimal Neovim plugin manager that handles lazy loading and configuration management using git submodules.
 
 ## Features
@@ -8,6 +11,13 @@ A minimal Neovim plugin manager that handles lazy loading and configuration mana
 - Git submodule-based installation
 - Zero dependencies
 - Simple configuration API
+- Hooks to enable other plugins to extend the functionality of graft.nvim
+
+## Extensions
+
+graft.nvim supports extensions which enables new functionality. Available extensions:
+
+- [graft-git.nvim](https://github.com/tlj/graft-git.nvim) Automatically install/remove/update git submodules
 
 ## Installation
 
@@ -83,6 +93,22 @@ Remove plugins:
 :execute '!git -C ' .. stdpath('config') .. ' submodule deinit -f pack/vendor/opt/plugin'
 :execute '!git -C ' .. stdpath('config') .. ' rm -f pack/vendor/opt/plugin'
 ```
+
+## Extensions interface
+
+You can register a hook through the register_hook(hook, opts) command.
+
+```lua
+register_hook("pre_setup", function() print("pre_setup hook") end)
+```
+
+Available hooks:
+
+- pre_setup(config) - Runs at the start of the setup() function
+- post_setup(config) - Runs after the setup() function
+- post_register(plugins) - Runs after all plugins have been registered
+- pre_load(name) - Runs before a plugin is loaded 
+- post_load(name) - Runs after a plugin has been loaded
 
 ## Philosophy and Goals
 
