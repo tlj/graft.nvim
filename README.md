@@ -22,24 +22,30 @@ graft.nvim supports extensions which enables new functionality. Available extens
 ## Installation
 
 Add the following snippet to your init.lua file. This will ensure that your dotfiles is a git repository
-by running git init if it is not, then add `graft.nvim` as a submodule under `pack/graft/start`. The 
+by running git init if it is not, then add `graft.nvim` as a submodule under `pack/graft/start`. The
 `graft()` command takes a list of extensions to install. If you want `graft.nvim` to automatically pull
 and remove plugins, you can add the `git` extension.
 
 ```lua
 local function graft(e)
-  local c=vim.fn.shellescape(vim.fn.stdpath('config'))
-  if not vim.fn.system('git -C '..c..' rev-parse --is-inside-work-tree'):match('^true') and
-    vim.fn.system('git -C '..c..' init')~=0 then vim.notify('Git init failed','ERROR') vim.cmd('qa!') end
-  for _,x in ipairs(e or {'',''}) do
-    local n=x~='' and '-'..x or ''
-    if not pcall(require,'graft'..n) and
-      vim.fn.system(string.format('git -C %s submodule add -f https://github.com/tlj/graft%s.nvim.git pack/graft/start/graft%s.nvim',c,n,n))~=0 then
-      vim.notify('Failed: graft'..n..'.nvim','ERROR') vim.cmd('qa!')
-    end
-  end
+ local c=vim.fn.shellescape(vim.fn.stdpath('config'))
+ if not vim.fn.system('git -C '..c..' rev-parse --is-inside-work-tree'):match('^true') then
+   vim.fn.system('git -C '..c..' init')
+   if vim.v.shell_error~=0 then vim.notify('Git init failed','ERROR') vim.cmd('qa!') end
+ end
+ e=e or {''}
+ table.insert(e,'')
+ for _,x in ipairs(e) do
+   local n=x~='' and '-'..x or ''
+   if not pcall(require,'graft'..n) then
+     vim.fn.system(string.format('git -C %s submodule add -f https://github.com/tlj/graft%s.nvim.git pack/graft/start/graft%s.nvim',c,n,n))
+     if vim.v.shell_error~=0 then vim.notify('Failed: graft'..n..'.nvim','ERROR') vim.cmd('qa!') end
+     package.loaded['graft'..n]=nil
+   end
+ end
+ vim.cmd'packloadall!'
 end
-graft({'git'})
+graft{'git'}
 ```
 
 You can also manually install it as a one time operation:
@@ -100,7 +106,7 @@ Each plugin can have the following specification options:
 
 ## Adding/Removing Plugins
 
-You can use the [graft-git.nvim](https://github.com/tlj/graft-git.nvim) extension to handle this automatically, or 
+You can use the [graft-git.nvim](https://github.com/tlj/graft-git.nvim) extension to handle this automatically, or
 you can handle this manually either through the terminal or through nvim commands.
 
 Add plugins as git submodules:
@@ -131,7 +137,7 @@ Available hooks:
 - pre_setup(config) - Runs at the start of the setup() function
 - post_setup(config) - Runs after the setup() function
 - post_register(plugins) - Runs after all plugins have been registered
-- pre_load(name) - Runs before a plugin is loaded 
+- pre_load(name) - Runs before a plugin is loaded
 - post_load(name) - Runs after a plugin has been loaded
 
 ## Philosophy and Goals
@@ -148,5 +154,3 @@ Available hooks:
 
 - [x] Change the filesystem (download/remove plugins)
 - [x] Implicitly load configuration
-
-
