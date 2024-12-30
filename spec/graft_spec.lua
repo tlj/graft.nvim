@@ -133,6 +133,13 @@ describe("Register plugin", function()
 		})
 
 		assert.are.same({
+			["tlj/graft.nvim"] = {
+				name = "graft",
+				dir = "graft.nvim",
+				repo = "tlj/graft.nvim",
+				type = "now",
+				setup = graft.setup_callback,
+			},
 			["tlj/dummy.nvim"] = {
 				name = "dummy",
 				dir = "dummy.nvim",
@@ -218,10 +225,18 @@ describe("Register plugin", function()
 				repo = "tlj/graft-ext.nvim",
 				type = "later",
 			},
+			-- we add graft.nvim so it can be displayed and controlled by extensions
+			["tlj/graft.nvim"] = {
+				name = "graft",
+				dir = "graft.nvim",
+				repo = "tlj/graft.nvim",
+				type = "now",
+				setup = graft.setup_callback,
+			}
 		}, graft.plugins)
 
 		assert.spy(notify_spy).was_called(1)
-		assert.spy(load_spy).was_called(5)
+		assert.spy(load_spy).was_called(6)
 
 		load_spy:revert()
 	end)

@@ -222,6 +222,12 @@ M.register_keys = function(spec)
 	end
 end
 
+-- This is a function which is called by the graft initialized setup, 
+-- which is basically a setup with the setup, so we want this to be
+-- empty, but need it for testing to compare setup functions.
+---@param config graft.Setup
+M.setup_callback = function(config) end
+
 -- Set up all the plugins and load the now-plugins
 ---@param config graft.Setup
 M.setup = function(config)
@@ -230,6 +236,11 @@ M.setup = function(config)
 
 	-- Validate the config
 	-- require("graft.validate").validate_setup(config)
+
+	-- Register and control ourselves
+	if not M.plugins["tlj/graft.nvim"] then
+		M.register("tlj/graft.nvim", { type = "now", setup = M.setup_callback })
+	end
 
 	-- Register all plugins before we load any, in case there is config set for a required
 	-- plugin which is defined later
@@ -246,8 +257,10 @@ M.setup = function(config)
 	M.run_hooks("post_register", M.plugins)
 
 	-- Load now-plugins immediately
-	for _, plugin in ipairs(config.now or {}) do
-		M.load(plugin[1])
+	for repo, spec in pairs(M.plugins or {}) do
+		if spec.type == "now" then
+			M.load(repo)
+		end
 	end
 
 	-- Run post-setup hooks
