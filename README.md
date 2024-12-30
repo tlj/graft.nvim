@@ -57,7 +57,7 @@ You can also manually install it as a one time operation:
 
 ## Usage
 
-Basic setup in your init.lua:
+Basic setup in your init.lua - see [tlj/dotfiles](https://github.com/tlj/dotfiles/blob/master/nvim/dot-config/nvim/init.lua) for inspiration.
 
 ```lua
 local ok, graft = pcall(require, "graft")
