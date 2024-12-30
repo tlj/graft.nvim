@@ -18,6 +18,7 @@ A minimal Neovim plugin manager that handles lazy loading and configuration mana
 graft.nvim supports extensions which enables new functionality. Available extensions:
 
 - [graft-git.nvim](https://github.com/tlj/graft-git.nvim) Automatically install/remove/update git submodules
+- [graft-ui.nvim](https://github.com/tlj/graft-ui.nvim) A simple UI to see the status of installed plugins
 
 ## Installation
 
@@ -45,7 +46,7 @@ local function graft(e)
  end
  vim.cmd'packloadall!'
 end
-graft{'git'}
+graft{'git','ui'}
 ```
 
 You can also manually install it as a one time operation:
