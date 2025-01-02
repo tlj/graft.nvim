@@ -232,7 +232,7 @@ describe("Register plugin", function()
 				repo = "tlj/graft.nvim",
 				type = "now",
 				setup = graft.setup_callback,
-			}
+			},
 		}, graft.plugins)
 
 		assert.spy(notify_spy).was_called(1)

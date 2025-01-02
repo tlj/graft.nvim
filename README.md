@@ -89,6 +89,19 @@ graft.setup({
 })
 ```
 
+### Tips and tricks
+
+Since all plugins will be checked out to the pack/ folder under your nvim config directory,
+it could be a good idea to exclude `pack/graft` from the results of fuzzy finders like `fzf-lua`:
+
+```lua
+require("fzf-lua").setup({
+  file_ignore_patterns = {
+    "pack/graft",
+  }
+})
+```
+
 ## Plugin Specification Options
 
 Each plugin can have the following specification options:
