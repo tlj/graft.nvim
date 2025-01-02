@@ -59,6 +59,9 @@ You can also manually install it as a one time operation:
 
 Basic setup in your init.lua - see [tlj/dotfiles](https://github.com/tlj/dotfiles/blob/master/nvim/dot-config/nvim/init.lua) for inspiration.
 
+`graft.nvim` will try to resolve and automatically require the right module by calling `setup(settings)` on that module. If you want
+to overwrite this behaviour you can configure your own `setup` function.
+
 ```lua
 local ok, graft = pcall(require, "graft")
 if not ok then
@@ -69,7 +72,7 @@ end
 graft.setup({
   -- Plugins to load immediately
   now = {
-    { "catppuccin/nvim", { name = "catppuccin", setup = function() vim.cmd("colorscheme catppuccin-mocha") end } },
+    { "catppuccin/nvim", { dir = "catppuccin", setup = function() vim.cmd("colorscheme catppuccin-mocha") end } },
   },
   
   -- Plugins to load lazily
@@ -85,6 +88,19 @@ graft.setup({
     
     -- Load on events
     { "lualine.nvim", { events = { "VimEnter" } } },
+  }
+})
+```
+
+### Tips and tricks
+
+Since all plugins will be checked out to the pack/ folder under your nvim config directory,
+it could be a good idea to exclude `pack/graft` from the results of fuzzy finders like `fzf-lua`:
+
+```lua
+require("fzf-lua").setup({
+  file_ignore_patterns = {
+    "pack/graft",
   }
 })
 ```

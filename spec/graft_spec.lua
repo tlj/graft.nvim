@@ -232,7 +232,7 @@ describe("Register plugin", function()
 				repo = "tlj/graft.nvim",
 				type = "now",
 				setup = graft.setup_callback,
-			}
+			},
 		}, graft.plugins)
 
 		assert.spy(notify_spy).was_called(1)
@@ -329,5 +329,41 @@ describe("Using hooks", function()
 			assert.spy(hooks.pre_load).was_called_with("fake")
 			assert.spy(hooks.post_load).was_called_with("fake")
 		end)
+	end)
+end)
+
+describe("find require_path", function()
+	local mock = require("luassert.mock")
+	local graft = require("graft")
+
+	it("in module where there is one file", function()
+		vim.api = mock(vim.api, true)
+
+		vim.api.nvim_get_runtime_file.returns({
+			"/user/tlj/.config/nvim/pack/graft/start/graft.nvim/lua/graft.lua",
+		})
+
+		local potential_modules = graft.find_require_path_potential_modules("graft.nvim")
+
+		assert.are.same({ "graft" }, potential_modules)
+		assert.stub(vim.api.nvim_get_runtime_file).was_called(1)
+
+		mock.revert(vim.api)
+	end)
+
+	it("in module where there are more files", function()
+		vim.api = mock(vim.api, true)
+
+		vim.api.nvim_get_runtime_file.returns({
+			"/user/tlj/.config/nvim/pack/graft/start/graft.nvim/lua/graft-fake.lua",
+			"/user/tlj/.config/nvim/pack/graft/start/graft.nvim/lua/graft.lua",
+		})
+
+		local potential_modules = graft.find_require_path_potential_modules("graft.nvim")
+
+		assert.are.same({ "graft", "graft-fake" }, potential_modules)
+		assert.stub(vim.api.nvim_get_runtime_file).was_called(1)
+
+		mock.revert(vim.api)
 	end)
 end)
