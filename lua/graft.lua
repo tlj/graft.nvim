@@ -119,13 +119,17 @@ M.register = function(repo, spec)
 	M.register_keys(spec)
 end
 
-local function find_require_path(plugin_path)
-	if plugin_path == "" then
-		return nil
-	end
+M.find_require_path_with_init = function(plugin_path)
+	-- If no direct files found, check for directories with init.lua
+	local init_files = vim.api.nvim_get_runtime_file("lua/*/init.lua", true)
 
-	local escaped_path = plugin_path:gsub("%-", "%%-")
+	local plugin_init_files = vim.tbl_filter(function(file) return file:match(plugin_path) end, init_files)
 
+	return plugin_init_files
+end
+
+---@return string[]
+M.find_require_path_potential_modules = function(plugin_path)
 	-- First check for any lua files directly in lua/
 	local lua_files = vim.api.nvim_get_runtime_file(
 		"lua/*.lua",
@@ -135,7 +139,7 @@ local function find_require_path(plugin_path)
 	-- Filter and collect all potential module names
 	local potential_modules = {}
 	for _, file in ipairs(lua_files) do
-		if file:match(escaped_path) then
+		if file:match(plugin_path) then
 			local mod_path = file:match("lua/([^/]+).lua$")
 			if mod_path then
 				table.insert(potential_modules, mod_path)
@@ -165,6 +169,18 @@ local function find_require_path(plugin_path)
 		return a < b
 	end)
 
+	return potential_modules
+end
+
+M.find_require_path = function(plugin_path)
+	if plugin_path == "" then
+		return nil
+	end
+
+	local escaped_path = plugin_path:gsub("%-", "%%-")
+
+	local potential_modules = M.find_require_path_potential_modules(escaped_path)
+
 	-- Try requiring modules in priority order
 	for _, mod_path in ipairs(potential_modules) do
 		local success = pcall(require, mod_path)
@@ -174,10 +190,7 @@ local function find_require_path(plugin_path)
 		package.loaded[mod_path] = nil
 	end
 
-	-- If no direct files found, check for directories with init.lua
-	local init_files = vim.api.nvim_get_runtime_file("lua/*/init.lua", true)
-
-	local plugin_init_files = vim.tbl_filter(function(file) return file:match(escaped_path) end, init_files)
+	local plugin_init_files = M.find_require_path_with_init(escaped_path)
 
 	for _, file in ipairs(plugin_init_files) do
 		-- Get the directory name that contains init.lua
@@ -402,7 +415,7 @@ M.load = function(repo)
 	M.load_required(spec)
 
 	-- Find the correct path to require if dir is set
-	local require_path = find_require_path(spec.dir)
+	local require_path = M.find_require_path(spec.dir)
 	if spec.dir ~= "" and not require_path then
 		vim.notify("Unable to find require_path for " .. spec.dir, vim.log.levels.ERROR)
 	end
