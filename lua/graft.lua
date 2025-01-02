@@ -371,6 +371,7 @@ M.load_plugin_path = function(dir)
 	end
 
 	pcall(function() vim.cmd("packadd " .. dir) end)
+	vim.cmd("packloadall!")
 end
 
 -- Load the required plugins
