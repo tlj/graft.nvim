@@ -71,12 +71,12 @@ end
 
 graft.setup({
   -- Plugins to load immediately
-  now = {
+  start = {
     { "catppuccin/nvim", { dir = "catppuccin", setup = function() vim.cmd("colorscheme catppuccin-mocha") end } },
   },
   
   -- Plugins to load lazily
-  later = {
+  opt = {
     -- Load on command
     { "telescope.nvim", { cmds = { "Telescope" }, requires = { "plenary.nvim" } } },
     

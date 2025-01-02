@@ -117,7 +117,7 @@ describe("Register plugin", function()
 		assert.are.same({}, graft.plugins)
 
 		graft.setup({
-			later = {
+			opt = {
 				{
 					"tlj/dummy.nvim",
 					{
@@ -137,14 +137,14 @@ describe("Register plugin", function()
 				name = "graft",
 				dir = "graft.nvim",
 				repo = "tlj/graft.nvim",
-				type = "now",
+				type = "start",
 				setup = graft.setup_callback,
 			},
 			["tlj/dummy.nvim"] = {
 				name = "dummy",
 				dir = "dummy.nvim",
 				repo = "tlj/dummy.nvim",
-				type = "later",
+				type = "opt",
 				requires = {
 					{ "tlj/lib.nvim" },
 					{ "tlj/ui.nvim", { name = "uilib", requires = { { "tlj/cli.nvim" } } } },
@@ -154,30 +154,30 @@ describe("Register plugin", function()
 				dir = "lib.nvim",
 				name = "lib",
 				repo = "tlj/lib.nvim",
-				type = "later",
+				type = "opt",
 			},
 			["tlj/ui.nvim"] = {
 				dir = "ui.nvim",
 				name = "uilib",
 				repo = "tlj/ui.nvim",
-				type = "later",
+				type = "opt",
 				requires = { { "tlj/cli.nvim" } },
 			},
 			["tlj/cli.nvim"] = {
 				dir = "cli.nvim",
 				name = "cli",
 				repo = "tlj/cli.nvim",
-				type = "later",
+				type = "opt",
 			},
 			["tlj/another.nvim"] = {
 				name = "another",
 				dir = "another.nvim",
 				repo = "tlj/another.nvim",
 				requires = { "tlj/nothing.nvim", "tlj/noquote.nvim" },
-				type = "later",
+				type = "opt",
 			},
-			["tlj/nothing.nvim"] = { name = "everything", dir = "nothing.nvim", repo = "tlj/nothing.nvim", type = "later" },
-			["tlj/noquote.nvim"] = { name = "noquote", dir = "noquote.nvim", repo = "tlj/noquote.nvim", type = "later" },
+			["tlj/nothing.nvim"] = { name = "everything", dir = "nothing.nvim", repo = "tlj/nothing.nvim", type = "opt" },
+			["tlj/noquote.nvim"] = { name = "noquote", dir = "noquote.nvim", repo = "tlj/noquote.nvim", type = "opt" },
 		}, graft.plugins)
 	end)
 
@@ -187,14 +187,14 @@ describe("Register plugin", function()
 		assert.are.same({}, graft.plugins)
 
 		graft.setup({
-			now = {
+			start = {
 				{ "tlj/dummy.nvim", { name = "dummy_plugin" } },
 				{ "tlj/empty.nvim" },
 				{ "tlj/example" },
 				{ "statusline" },
 				{ "custom-plugin", { dir = "~/src/custom-plugin.nvim" } },
 			},
-			later = {
+			opt = {
 				{ "tlj/graft-ext.nvim", { name = "graft_ext" } },
 				{ "" },
 			},
@@ -202,35 +202,35 @@ describe("Register plugin", function()
 
 		assert.are.same({
 			-- Should retain the name set in setup and determine the correct dir name
-			["tlj/dummy.nvim"] = { name = "dummy_plugin", dir = "dummy.nvim", repo = "tlj/dummy.nvim", type = "now" },
+			["tlj/dummy.nvim"] = { name = "dummy_plugin", dir = "dummy.nvim", repo = "tlj/dummy.nvim", type = "start" },
 			-- Should determine both name and dir from repo name
-			["tlj/empty.nvim"] = { name = "empty", dir = "empty.nvim", repo = "tlj/empty.nvim", type = "now" },
+			["tlj/empty.nvim"] = { name = "empty", dir = "empty.nvim", repo = "tlj/empty.nvim", type = "start" },
 			-- Should determine both name and dir from repo name, without extension
-			["tlj/example"] = { name = "example", dir = "example", repo = "tlj/example", type = "now" },
+			["tlj/example"] = { name = "example", dir = "example", repo = "tlj/example", type = "start" },
 			-- plugins which are not github repos are most likely not in pack, so
 			-- we don't set dir
-			["statusline"] = { name = "statusline", dir = "", repo = "statusline", type = "now" },
+			["statusline"] = { name = "statusline", dir = "", repo = "statusline", type = "start" },
 			-- we should be able to load a plugin from a local directory outside of
 			-- neovim config by adding it to runtimepath
 			["custom-plugin"] = {
 				name = "custom-plugin",
 				dir = "~/src/custom-plugin.nvim",
 				repo = "custom-plugin",
-				type = "now",
+				type = "start",
 			},
-			-- plugins from [later] is also added to plugins list
+			-- plugins from [opt] is also added to plugins list
 			["tlj/graft-ext.nvim"] = {
 				name = "graft_ext",
 				dir = "graft-ext.nvim",
 				repo = "tlj/graft-ext.nvim",
-				type = "later",
+				type = "opt",
 			},
 			-- we add graft.nvim so it can be displayed and controlled by extensions
 			["tlj/graft.nvim"] = {
 				name = "graft",
 				dir = "graft.nvim",
 				repo = "tlj/graft.nvim",
-				type = "now",
+				type = "start",
 				setup = graft.setup_callback,
 			},
 		}, graft.plugins)
@@ -293,7 +293,7 @@ describe("Using hooks", function()
 			graft.register_hook("pre_setup", hooks.pre_setup)
 			graft.register_hook("post_setup", hooks.post_setup)
 
-			local config = { later = { { "tlj/graft.nvim" } } }
+			local config = { opt = { { "tlj/graft.nvim" } } }
 			graft.setup(config)
 
 			assert.spy(hooks.post_register).was_called_with({
@@ -301,7 +301,7 @@ describe("Using hooks", function()
 					dir = "graft.nvim",
 					name = "graft",
 					repo = "tlj/graft.nvim",
-					type = "later",
+					type = "opt",
 				},
 			})
 
@@ -321,7 +321,7 @@ describe("Using hooks", function()
 			graft.register_hook("pre_load", hooks.pre_load)
 			graft.register_hook("post_load", hooks.post_load)
 
-			local config = { later = { { "fake" } } }
+			local config = { opt = { { "fake" } } }
 			graft.setup(config)
 
 			graft.load("fake")

@@ -58,12 +58,12 @@ Basic setup in your init.lua:
 
     graft.setup({
       -- Plugins to load immediately
-      now = {
+      start = {
         { "catppuccin/nvim", { name = "catppuccin", setup = function() vim.cmd("colorscheme catppuccin-mocha") end } },
       },
       
       -- Plugins to load lazily
-      later = {
+      opt = {
         -- Load on command
         { "telescope.nvim", { cmds = { "Telescope" }, requires = { "plenary.nvim" } } },
         
@@ -134,7 +134,7 @@ setup~
 graft.setup({config})                                            *graft.setup()*
     Initialize plugin configuration
     Parameters: ~
-        {config}  table   Configuration with 'now' and 'later' sections
+        {config}  table   Configuration with 'start' and 'opt' sections
 
 graft.load({repo})                                               *graft.load()*
     Load a plugin and its dependencies

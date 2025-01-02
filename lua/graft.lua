@@ -34,7 +34,7 @@ end
 
 ---@class graft.Spec
 ---@field repo? string The repo for the plugin - automatically set from the defined repo in the setup
----@field type? string The type of plugin ("now" or "later")
+---@field type? string The type of plugin ("start" or "opt")
 ---@field name? string This is the name of the plugin if the module name is different from the url name
 ---@field dir? string This is the directory name of the plugin
 ---@field branch? string The branch to follow
@@ -54,8 +54,8 @@ end
 ---@field spec? graft.Spec The spec of the plugin (settings, etc)
 
 ---@class graft.Setup
----@field now? graft.Plugin[] Plugins to load immediately
----@field later? graft.Plugin[] Plugins to load later
+---@field start? graft.Plugin[] Plugins to load immediately
+---@field opt? graft.Plugin[] Plugins to load later
 
 ---@type table<string, graft.Spec>
 M.plugins = {}
@@ -95,7 +95,7 @@ M.register = function(repo, spec)
 	spec.repo = repo
 	spec.name = spec.name or M.get_plugin_name(repo)
 	spec.dir = spec.dir or M.get_plugin_dir(repo)
-	spec.type = spec.type or "later"
+	spec.type = spec.type or "opt"
 
 	-- Register the plugin in our lookup table
 	M.plugins[repo] = spec
@@ -316,7 +316,7 @@ end
 ---@param config graft.Setup
 M.setup_callback = function(config) end
 
--- Set up all the plugins and load the now-plugins
+-- Set up all the plugins and load the start-plugins
 ---@param config graft.Setup
 M.setup = function(config)
 	-- Run pre-setup hooks
@@ -327,26 +327,26 @@ M.setup = function(config)
 
 	-- Register and control ourselves
 	if not M.plugins["tlj/graft.nvim"] then
-		M.register("tlj/graft.nvim", { type = "now", setup = M.setup_callback })
+		M.register("tlj/graft.nvim", { type = "start", setup = M.setup_callback })
 	end
 
 	-- Register all plugins before we load any, in case there is config set for a required
 	-- plugin which is defined later
-	for _, plugin in ipairs(config.now or {}) do
+	for _, plugin in ipairs(config.start or {}) do
 		local opts = plugin[2] or {}
-		opts.type = "now"
+		opts.type = "start"
 		M.register(plugin[1] or "", opts)
 	end
 
-	for _, plugin in ipairs(config.later or {}) do
+	for _, plugin in ipairs(config.opt or {}) do
 		M.register(plugin[1] or "", plugin[2] or {})
 	end
 
 	M.run_hooks("post_register", M.plugins)
 
-	-- Load now-plugins immediately
+	-- Load start-plugins immediately
 	for repo, spec in pairs(M.plugins or {}) do
-		if spec.type == "now" then
+		if spec.type == "start" then
 			M.load(repo)
 		end
 	end
