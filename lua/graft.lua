@@ -196,6 +196,7 @@ M.find_require_path = function(plugin_path)
 		-- Get the directory name that contains init.lua
 		local mod_path = file:match("lua/([^/]+)/init.lua$")
 		if mod_path then
+			package.loaded[mod_path] = nil
 			local success = pcall(require, mod_path)
 			if success then
 				return mod_path
@@ -283,8 +284,7 @@ M.register_ft = function(spec)
 	if spec.ft then
 		vim.api.nvim_create_autocmd("FileType", {
 			group = M.autogroup,
-			pattern = spec.pattern or "*",
-			ft = spec.ft,
+			pattern = spec.ft,
 			callback = function() M.load(spec.repo) end,
 			once = true, -- we only need this to happen once
 		})
@@ -417,9 +417,9 @@ M.load = function(repo)
 
 	-- Find the correct path to require if dir is set
 	local require_path = M.find_require_path(spec.dir)
-	if spec.dir ~= "" and not require_path then
-		vim.notify("Unable to find require_path for " .. spec.dir, vim.log.levels.ERROR)
-	end
+	-- if spec.dir ~= "" and not require_path then
+	-- 	vim.notify("Unable to find require_path for " .. spec.dir, vim.log.levels.ERROR)
+	-- end
 
 	-- Require plugin, fall back to spec.name if no require
 	-- path is found automatically. Worst case a custom setup()
@@ -427,7 +427,7 @@ M.load = function(repo)
 	local ok, p = pcall(require, require_path or spec.name)
 	if not ok then
 		p = nil
-		vim.notify(spec.repo .. " (" .. spec.name .. ") (" .. spec.dir .. ") could not be required.")
+		-- vim.notify(spec.repo .. " (" .. spec.name .. ") (" .. spec.dir .. ") could not be required.")
 	end
 
 	-- Try to find the correct setup function to call
@@ -448,6 +448,34 @@ M.load = function(repo)
 
 	-- Run post-load hooks
 	M.run_hooks("post_load", repo)
+end
+
+---@param name string
+---@return string
+local function normalize_require_name(name)
+	-- Change / to -- and lowercase the name of the repo
+	name = name:gsub("/", "%-%-"):lower()
+	-- First remove .lua or .nvim extension if present
+	name = name:gsub("%.lua$", ""):gsub("%.nvim$", "")
+	-- Then replace remaining dots with dashes
+	name = name:gsub("%.", "-")
+	return name
+end
+
+-- Include a spec file with a plugin definition
+---@param repo string
+M.include = function(repo)
+	-- remove extension and add the load path
+	local fp = "config/plugins/" .. normalize_require_name(repo)
+
+	-- try to load it
+	local hasspec, spec = pcall(require, fp)
+	if not hasspec then
+		vim.notify("Could not include " .. fp .. ".lua", vim.log.levels.ERROR)
+		return
+	end
+
+	return spec
 end
 
 return M
