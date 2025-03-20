@@ -72,7 +72,25 @@ M.install = function(spec)
 		show_status("Installing " .. spec.repo .. " [ok]")
 	end
 
+	M.build(spec)
+
 	return success
+end
+
+---@param spec graft.Spec
+M.build = function(spec)
+	if spec.build then
+		if spec.build:match("^:") ~= nil then
+			vim.notify(" * Building " .. spec.repo .. " with nvim command " .. spec.build)
+			vim.cmd(spec.build)
+		else
+			vim.notify(" * Building " .. spec.repo .. " with system command " .. spec.build)
+			local prev_dir = vim.fn.getcwd()
+			vim.cmd("cd " .. M.full_pack_dir(spec))
+			vim.fn.system(spec.build)
+			vim.cmd("cd " .. prev_dir)
+		end
+	end
 end
 
 ---@param spec graft.Spec
@@ -167,6 +185,8 @@ M.update_plugin = function(spec)
 			vim.print("Unable to update repo " .. spec.repo .. ": " .. update_output)
 			return false
 		end
+
+		M.build(spec)
 	end
 
 	return true
@@ -264,8 +284,6 @@ end
 ---Setup graft-git
 ---@param opts? graft.Git.Sync Configuration options
 M.setup = function(opts)
-	-- Register our hooks with graft
-	graft.register("tlj/graft-git.nvim", { type = "start" })
 	graft.register_hook("post_register", function(plugins) M.sync(plugins, opts) end)
 
 	vim.api.nvim_create_user_command(

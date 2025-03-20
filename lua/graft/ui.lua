@@ -128,9 +128,7 @@ local function display_info()
 	for _, plugin in pairs(graft.plugins) do
 		table.insert(sorted_plugins, plugin)
 	end
-	table.sort(sorted_plugins, function(a, b)
-		return a.repo < b.repo
-	end)
+	table.sort(sorted_plugins, function(a, b) return a.repo < b.repo end)
 
 	for _, plugin in ipairs(sorted_plugins) do
 		table.insert(lines, format_plugin_info(plugin))
@@ -149,12 +147,7 @@ end
 
 -- Create the info command
 function M.setup()
-	-- Register ourselves with graft
-	graft.register("tlj/graft-ui.nvim", { type = "start" })
-
-	vim.api.nvim_create_user_command("GraftInfo", function()
-		display_info()
-	end, {})
+	vim.api.nvim_create_user_command("GraftInfo", function() display_info() end, {})
 
 	-- Register with graft
 	if graft.register_hook then

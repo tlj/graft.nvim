@@ -47,6 +47,7 @@ end
 ---@field ft? string[] Filetypes which will trigger loading of this plugin
 ---@field keys? table<string, {cmd:string|function, desc: string}> Keymaps with commands (string or function) and description
 ---@field setup? function Custom setup function. If not set, will try to find setup() automatically.
+---@field build? string A command (vim cmd if it starts with :, system otherwise) to run after install
 
 ---@class graft.Plugin
 ---@field [1] string The github repo url of the plugin
