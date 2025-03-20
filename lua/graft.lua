@@ -1,5 +1,9 @@
 ---@class graft.Graft
-local M = {}
+local M = {
+	logfile = vim.fn.stdpath("log") .. "/graft.log",
+	pending_operations = 0,
+	on_all_complete_callback = nil,
+}
 
 ---@type table<string, function[]>
 M.hooks = {
@@ -8,6 +12,7 @@ M.hooks = {
 	post_register = {},
 	pre_load = {},
 	post_load = {},
+	post_sync = {},
 }
 
 ---Register a callback for a specific hook
@@ -38,7 +43,6 @@ end
 ---@field name? string This is the name of the plugin if the module name is different from the url name
 ---@field dir? string This is the directory name of the plugin
 ---@field branch? string The branch to follow
----@field tag? string The tag to check out
 ---@field settings? table The settings for this plugin, will be sent to setup() function
 ---@field requires? (string | graft.Plugin)[] A list of repos which has to be loaded before this one
 ---@field cmds? string[] A list of commands which will load the plugin
@@ -48,6 +52,7 @@ end
 ---@field ft? string[] Filetypes which will trigger loading of this plugin
 ---@field keys? table<string, {cmd:string|function, desc: string}> Keymaps with commands (string or function) and description
 ---@field setup? function Custom setup function. If not set, will try to find setup() automatically.
+---@field build? string A command (vim cmd if it starts with :, system otherwise) to run after install
 
 ---@class graft.Plugin
 ---@field [1] string The github repo url of the plugin
@@ -80,6 +85,81 @@ end
 M.get_plugin_dir = function(repo)
 	local dir = repo:match(".*/(.*)")
 	return dir or ""
+end
+
+-- Use libuv to spawn processes
+-- Attribution for this function goes to paq-nvim
+-- https://github.com/fsouza/paq-nvim/blob/main/lua/paq.lua
+---@param process string
+---@param args table
+---@param cwd string
+---@param cb function
+M.run = function(process, args, cwd, cb)
+	-- Increment pending operations counter
+	M.pending_operations = M.pending_operations + 1
+
+	local log = vim.uv.fs_open(M.logfile, "a+", 0x1A4)
+	local stderr = vim.uv.new_pipe(false)
+	if log and stderr then
+		stderr:open(log)
+	end
+	local handle, pid
+	handle, pid = vim.uv.spawn(
+		process,
+		{ args = args, cwd = cwd, stdio = { nil, nil, stderr }, env = {} },
+		vim.schedule_wrap(function(code)
+			if log then
+				vim.uv.fs_close(log)
+			end
+			if stderr then
+				stderr:close()
+			end
+			if handle then
+				handle:close()
+			end
+
+			-- Call the original callback
+			cb(code == 0)
+
+			-- Decrement pending operations counter
+			M.pending_operations = M.pending_operations - 1
+
+			-- Check if all operations are complete
+			if M.pending_operations == 0 and M.on_all_complete_callback then
+				local callback = M.on_all_complete_callback
+				M.on_all_complete_callback = nil
+				if callback then
+					callback()
+				end
+			end
+		end)
+	)
+	if not handle then
+		vim.notify(string.format("Graft: Failed to spawn %s (%s)", process, pid))
+		-- Decrement counter if spawn failed
+		M.pending_operations = M.pending_operations - 1
+
+		-- Check if all operations are complete
+		if M.pending_operations == 0 and M.on_all_complete_callback then
+			local callback = M.on_all_complete_callback
+			M.on_all_complete_callback = nil
+			if callback then
+				callback()
+			end
+		end
+	end
+end
+
+-- Wait for all pending operations to complete
+---@param callback function Function to call when all operations are complete
+M.wait_for_completion = function(callback)
+	if M.pending_operations == 0 then
+		-- If no operations are pending, call the callback immediately
+		callback()
+	else
+		-- Otherwise, store the callback to be called when operations complete
+		M.on_all_complete_callback = callback
+	end
 end
 
 ---@param repo string
@@ -196,6 +276,7 @@ M.find_require_path = function(plugin_path)
 		-- Get the directory name that contains init.lua
 		local mod_path = file:match("lua/([^/]+)/init.lua$")
 		if mod_path then
+			package.loaded[mod_path] = nil
 			local success = pcall(require, mod_path)
 			if success then
 				return mod_path
@@ -283,8 +364,7 @@ M.register_ft = function(spec)
 	if spec.ft then
 		vim.api.nvim_create_autocmd("FileType", {
 			group = M.autogroup,
-			pattern = spec.pattern or "*",
-			ft = spec.ft,
+			pattern = spec.ft,
 			callback = function() M.load(spec.repo) end,
 			once = true, -- we only need this to happen once
 		})
@@ -371,7 +451,7 @@ M.load_plugin_path = function(dir)
 	end
 
 	pcall(function() vim.cmd("packadd " .. dir) end)
-	vim.cmd("packloadall!")
+	-- vim.cmd("packloadall!")
 end
 
 -- Load the required plugins
@@ -409,29 +489,33 @@ M.load = function(repo)
 		error("Tried to load unregistered plugin: " .. repo)
 	end
 
-	-- If a directory is set, we try to packadd it
-	M.load_plugin_path(spec.dir)
-
 	-- Load required plugins first
 	M.load_required(spec)
 
-	-- Find the correct path to require if dir is set
-	local require_path = M.find_require_path(spec.dir)
-	if spec.dir ~= "" and not require_path then
-		vim.notify("Unable to find require_path for " .. spec.dir, vim.log.levels.ERROR)
-	end
+	-- If a directory is set, we try to packadd it
+	M.load_plugin_path(spec.dir)
 
-	-- Require plugin, fall back to spec.name if no require
-	-- path is found automatically. Worst case a custom setup()
+	-- Require plugin, fall back to require_path if we are unable to
+	-- require on plugin name. Worst case a custom setup()
 	-- is needed to require the correct path.
-	local ok, p = pcall(require, require_path or spec.name)
+	local ok, p = pcall(require, spec.name)
 	if not ok then
-		p = nil
-		vim.notify(spec.repo .. " (" .. spec.name .. ") (" .. spec.dir .. ") could not be required.")
+		package.loaded[spec.name] = nil
+		local require_path = M.find_require_path(spec.dir)
+		if require_path then
+			-- vim.print("Loading " .. spec.name .. " failed, trying " .. vim.inspect(require_path))
+			ok, p = pcall(require, require_path)
+			if not ok then
+				-- vim.print(" .. that also failed.")
+				package.loaded[require_path] = nil
+			end
+		else
+			-- vim.print("Unable to load " .. spec.name .. ", found no fallback require path.")
+		end
 	end
 
 	-- Try to find the correct setup function to call
-	if spec.setup and type(spec.setup) == "function" then
+	if p ~= nil and spec.setup and type(spec.setup) == "function" then
 		spec.setup(spec.settings)
 	elseif p ~= nil and p.setup and type(p.setup) == "function" then
 		p.setup(spec.settings)
@@ -448,6 +532,34 @@ M.load = function(repo)
 
 	-- Run post-load hooks
 	M.run_hooks("post_load", repo)
+end
+
+---@param name string
+---@return string
+local function normalize_require_name(name)
+	-- Change / to -- and lowercase the name of the repo
+	name = name:gsub("/", "%-%-"):lower()
+	-- First remove .lua or .nvim extension if present
+	name = name:gsub("%.lua$", ""):gsub("%.nvim$", "")
+	-- Then replace remaining dots with dashes
+	name = name:gsub("%.", "-")
+	return name
+end
+
+-- Include a spec file with a plugin definition
+---@param repo string
+M.include = function(repo)
+	-- remove extension and add the load path
+	local fp = "config/plugins/" .. normalize_require_name(repo)
+
+	-- try to load it
+	local hasspec, spec = pcall(require, fp)
+	if not hasspec then
+		vim.notify("Could not include " .. fp .. ".lua", vim.log.levels.ERROR)
+		return
+	end
+
+	return spec
 end
 
 return M
