@@ -113,7 +113,9 @@ M.run = function(process, args, cwd, cb)
 			if stderr then
 				stderr:close()
 			end
-			handle:close()
+			if handle then
+				handle:close()
+			end
 
 			-- Call the original callback
 			cb(code == 0)
