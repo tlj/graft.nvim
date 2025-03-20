@@ -8,12 +8,14 @@ local M = {}
 
 -- Get the graft instance
 local graft = require("graft")
+local status_window = require("graft.ui.status")
 
 -- Update status in neovim without user input
 ---@param msg string
 local function show_status(msg)
-	vim.cmd.redraw()
-	vim.cmd.echo("'" .. msg .. "'")
+	if status_window.active then
+		status_window.add_message(msg)
+	end
 end
 
 ---@param spec graft.Spec
@@ -107,7 +109,7 @@ M.uninstall = function(spec)
 	end
 
 	-- First, try to remove the directory recursively
-	local success, err = pcall(function()
+	local success, _ = pcall(function()
 		-- Use vim.fn.delete with 'rf' flag:
 		-- 'r' means recursive
 		-- 'f' means force (no error if file doesn't exist)
@@ -175,7 +177,7 @@ M.update_plugin = function(spec)
 							if checkout_ok then
 								graft.run("git", { "pull", "--recurse-submodules", "--update-shallow" }, cwd, function(update_ok)
 									if update_ok then
-										vim.print("Update of " .. spec.repo .. " OK.")
+										show_status("Update of " .. spec.repo .. " OK.")
 									else
 										vim.print(string.format("Graft: Unable to pull updates for %s", spec.repo))
 									end
@@ -241,6 +243,34 @@ M.sync = function(plugins, opts, on_complete)
 	opts = vim.tbl_deep_extend("force", defaults, opts or {})
 
 	local desired = {}
+	local has_operations = false
+
+	-- Check if we need to do any operations
+	local function check_operations()
+		if opts.remove_plugins then
+			local installed_start = M.find_in_pack_dir("start")
+			local installed_opt = M.find_in_pack_dir("opt")
+			local installed = vim.tbl_extend("force", installed_start, installed_opt)
+
+			for installed_name, _ in pairs(installed) do
+				if not desired[installed_name] then
+					has_operations = true
+					break
+				end
+			end
+		end
+
+		if not has_operations and opts.install_plugins then
+			for _, spec in pairs(plugins) do
+				if not M.is_installed(spec) then
+					has_operations = true
+					break
+				end
+			end
+		end
+
+		return has_operations
+	end
 
 	if opts.remove_plugins then
 		for _, plugin in pairs(plugins) do
@@ -248,6 +278,12 @@ M.sync = function(plugins, opts, on_complete)
 				desired[plugin.type .. ":" .. plugin.dir] = true
 			end
 		end
+	end
+
+	-- Only create the status window if we have operations to perform
+	if check_operations() then
+		status_window.create()
+		status_window.add_message("Starting plugin operations...")
 	end
 
 	if opts.remove_plugins then
@@ -282,6 +318,9 @@ M.sync = function(plugins, opts, on_complete)
 			show_status("Graft sync complete.")
 			on_complete()
 		end)
+	elseif status_window.active then
+		-- If no callback but window is active, close it after operations complete
+		graft.wait_for_completion(function() show_status("Graft sync complete.") end)
 	end
 end
 
@@ -297,6 +336,8 @@ M.setup = function(opts)
 
 		-- Block until setup is complete
 		vim.wait(60000, function() return setup_complete end, 100)
+
+		graft.run_hooks("post_sync", {})
 	end)
 
 	vim.api.nvim_create_user_command("GraftInstall", function()
@@ -331,6 +372,14 @@ M.setup = function(opts)
 			function() vim.notify("Graft: Plugin sync complete", vim.log.levels.INFO) end
 		)
 	end, {})
+
+	vim.api.nvim_create_user_command("GraftStatus", function()
+		if status_window.active then
+			status_window.close()
+		else
+			status_window.reopen()
+		end
+	end, { desc = "Toggle Graft status window" })
 end
 
 return M

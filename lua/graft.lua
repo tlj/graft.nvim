@@ -12,6 +12,7 @@ M.hooks = {
 	post_register = {},
 	pre_load = {},
 	post_load = {},
+	post_sync = {},
 }
 
 ---Register a callback for a specific hook
