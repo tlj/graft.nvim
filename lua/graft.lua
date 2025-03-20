@@ -96,30 +96,38 @@ end
 M.run = function(process, args, cwd, cb)
 	-- Increment pending operations counter
 	M.pending_operations = M.pending_operations + 1
-	
+
 	local log = vim.uv.fs_open(M.logfile, "a+", 0x1A4)
 	local stderr = vim.uv.new_pipe(false)
-	stderr:open(log)
+	if log and stderr then
+		stderr:open(log)
+	end
 	local handle, pid
 	handle, pid = vim.uv.spawn(
 		process,
 		{ args = args, cwd = cwd, stdio = { nil, nil, stderr }, env = {} },
 		vim.schedule_wrap(function(code)
-			vim.uv.fs_close(log)
-			stderr:close()
+			if log then
+				vim.uv.fs_close(log)
+			end
+			if stderr then
+				stderr:close()
+			end
 			handle:close()
-			
+
 			-- Call the original callback
 			cb(code == 0)
-			
+
 			-- Decrement pending operations counter
 			M.pending_operations = M.pending_operations - 1
-			
+
 			-- Check if all operations are complete
 			if M.pending_operations == 0 and M.on_all_complete_callback then
 				local callback = M.on_all_complete_callback
 				M.on_all_complete_callback = nil
-				callback()
+				if callback then
+					callback()
+				end
 			end
 		end)
 	)
@@ -127,12 +135,14 @@ M.run = function(process, args, cwd, cb)
 		vim.notify(string.format("Graft: Failed to spawn %s (%s)", process, pid))
 		-- Decrement counter if spawn failed
 		M.pending_operations = M.pending_operations - 1
-		
+
 		-- Check if all operations are complete
 		if M.pending_operations == 0 and M.on_all_complete_callback then
 			local callback = M.on_all_complete_callback
 			M.on_all_complete_callback = nil
-			callback()
+			if callback then
+				callback()
+			end
 		end
 	end
 end

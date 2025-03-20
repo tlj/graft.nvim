@@ -290,46 +290,38 @@ end
 M.setup = function(opts)
 	graft.register_hook("post_register", function(plugins) M.sync(plugins, opts) end)
 
-	vim.api.nvim_create_user_command(
-		"GraftInstall",
-		function() 
-			show_status("Installing plugins...")
-			M.sync(graft.plugins, { install_plugins = true, remove_plugins = false, update_plugins = false }, function()
-				vim.notify("Graft: Plugin installation complete", vim.log.levels.INFO)
-			end)
-		end,
-		{}
-	)
-	vim.api.nvim_create_user_command(
-		"GraftRemove",
-		function() 
-			show_status("Removing plugins...")
-			M.sync(graft.plugins, { install_plugins = false, remove_plugins = true, update_plugins = false }, function()
-				vim.notify("Graft: Plugin removal complete", vim.log.levels.INFO)
-			end)
-		end,
-		{}
-	)
-	vim.api.nvim_create_user_command(
-		"GraftUpdate",
-		function() 
-			show_status("Updating plugins...")
-			M.sync(graft.plugins, { install_plugins = false, remove_plugins = false, update_plugins = true }, function()
-				vim.notify("Graft: Plugin update complete", vim.log.levels.INFO)
-			end)
-		end,
-		{}
-	)
-	vim.api.nvim_create_user_command(
-		"GraftSync",
-		function() 
-			show_status("Syncing plugins...")
-			M.sync(graft.plugins, { install_plugins = true, remove_plugins = true, update_plugins = true }, function()
-				vim.notify("Graft: Plugin sync complete", vim.log.levels.INFO)
-			end)
-		end,
-		{}
-	)
+	vim.api.nvim_create_user_command("GraftInstall", function()
+		show_status("Installing plugins...")
+		M.sync(
+			graft.plugins,
+			{ install_plugins = true, remove_plugins = false, update_plugins = false },
+			function() vim.notify("Graft: Plugin installation complete", vim.log.levels.INFO) end
+		)
+	end, {})
+	vim.api.nvim_create_user_command("GraftRemove", function()
+		show_status("Removing plugins...")
+		M.sync(
+			graft.plugins,
+			{ install_plugins = false, remove_plugins = true, update_plugins = false },
+			function() vim.notify("Graft: Plugin removal complete", vim.log.levels.INFO) end
+		)
+	end, {})
+	vim.api.nvim_create_user_command("GraftUpdate", function()
+		show_status("Updating plugins...")
+		M.sync(
+			graft.plugins,
+			{ install_plugins = false, remove_plugins = false, update_plugins = true },
+			function() vim.notify("Graft: Plugin update complete", vim.log.levels.INFO) end
+		)
+	end, {})
+	vim.api.nvim_create_user_command("GraftSync", function()
+		show_status("Syncing plugins...")
+		M.sync(
+			graft.plugins,
+			{ install_plugins = true, remove_plugins = true, update_plugins = true },
+			function() vim.notify("Graft: Plugin sync complete", vim.log.levels.INFO) end
+		)
+	end, {})
 end
 
 return M

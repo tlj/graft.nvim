@@ -6,7 +6,6 @@ local graft = require("graft")
 
 -- Buffer and window handling
 local buf = nil
-local win = nil
 
 -- Constants for window config
 local WINDOW_WIDTH = 80
@@ -22,8 +21,8 @@ local COLUMN_VERSION = 20 -- Width for version/branch info
 ---@return number, number buffer number and window id
 local function create_floating_window()
 	-- Calculate window position
-	local width = vim.api.nvim_get_option("columns")
-	local height = vim.api.nvim_get_option("lines")
+	local width = vim.o.columns
+	local height = vim.o.lines
 
 	local win_height = math.min(WINDOW_HEIGHT, height - 4)
 	local win_width = math.min(WINDOW_WIDTH, width - 4)
@@ -33,7 +32,7 @@ local function create_floating_window()
 
 	-- Create buffer
 	local buffer = vim.api.nvim_create_buf(false, true)
-	vim.api.nvim_buf_set_option(buffer, "bufhidden", "wipe")
+	vim.bo[buffer].bufhidden = "wipe"
 
 	-- Window options
 	local opts = {
@@ -50,12 +49,12 @@ local function create_floating_window()
 	local window = vim.api.nvim_open_win(buffer, true, opts)
 
 	-- Set window options
-	vim.api.nvim_win_set_option(window, "wrap", false)
-	vim.api.nvim_win_set_option(window, "cursorline", true)
+	vim.wo[window].wrap = false
+	vim.wo[window].cursorline = true
 
 	-- Set buffer options
-	vim.api.nvim_buf_set_option(buffer, "modifiable", false)
-	vim.api.nvim_buf_set_option(buffer, "filetype", "graft-info")
+	vim.bo[buffer].modifiable = false
+	vim.bo[buffer].filetype = "graft-info"
 
 	return buffer, window
 end
@@ -91,8 +90,6 @@ local function format_plugin_info(plugin)
 	local version = ""
 	if plugin.branch then
 		version = "(" .. plugin.branch .. ")"
-	elseif plugin.tag then
-		version = "(" .. plugin.tag .. ")"
 	end
 	local version_col = format_column(version, COLUMN_VERSION)
 
@@ -106,7 +103,7 @@ local function display_info()
 	end
 
 	-- Create new window
-	buf, win = create_floating_window()
+	buf, _ = create_floating_window()
 
 	-- Prepare content
 	local lines = {}
@@ -135,9 +132,9 @@ local function display_info()
 	end
 
 	-- Set content
-	vim.api.nvim_buf_set_option(buf, "modifiable", true)
+	vim.bo[buf].modifiable = true
 	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
-	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+	vim.bo[buf].modifiable = false
 
 	-- Set keymaps
 	local opts = { noremap = true, silent = true }
