@@ -15,44 +15,13 @@ A minimal Neovim plugin manager that handles lazy loading and configuration mana
 
 ## Extensions
 
-graft.nvim supports extensions which enables new functionality. Available extensions:
-
-- [graft-git.nvim](https://github.com/tlj/graft-git.nvim) Automatically install/remove/update git submodules
-- [graft-ui.nvim](https://github.com/tlj/graft-ui.nvim) A simple UI to see the status of installed plugins
+graft.nvim supports extensions which enables new functionality.
 
 ## Installation
 
-Add the following snippet to your init.lua file. This will ensure that your dotfiles is a git repository
-by running git init if it is not, then add `graft.nvim` as a submodule under `pack/graft/start`. The
-`graft()` command takes a list of extensions to install. If you want `graft.nvim` to automatically pull
-and remove plugins, you can add the `git` extension.
-
-```lua
-local function graft(e)
- local c=vim.fn.shellescape(vim.fn.stdpath('config'))
- if not vim.fn.system('git -C '..c..' rev-parse --is-inside-work-tree'):match('^true') then
-   vim.fn.system('git -C '..c..' init')
-   if vim.v.shell_error~=0 then vim.notify('Git init failed','ERROR') vim.cmd('qa!') end
- end
- e=e or {''}
- table.insert(e,'')
- for _,x in ipairs(e) do
-   local n=x~='' and '-'..x or ''
-   if not pcall(require,'graft'..n) then
-     vim.fn.system(string.format('git -C %s submodule add -f https://github.com/tlj/graft%s.nvim.git pack/graft/start/graft%s.nvim',c,n,n))
-     if vim.v.shell_error~=0 then vim.notify('Failed: graft'..n..'.nvim','ERROR') vim.cmd('qa!') end
-     package.loaded['graft'..n]=nil
-   end
- end
- vim.cmd'packloadall!'
-end
-graft{'git','ui'}
-```
-
-You can also manually install it as a one time operation:
-
 ```bash
-:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/tlj/graft.nvim pack/graft/start/graft.nvim'
+git clone --depth=1 https://github.com/tlj/graft.nvim \
+    "${XDG_DATA_HOME:-$HOME/.local/share}"/nvim/site/pack/graft/start/graft.nvim
 ```
 
 ## Usage
@@ -78,32 +47,26 @@ graft.setup({
   -- Plugins to load lazily
   opt = {
     -- Load on command
-    { "telescope.nvim", { cmds = { "Telescope" }, requires = { "plenary.nvim" } } },
+    { "nvim-telescope/telescope.nvim", { cmds = { "Telescope" }, requires = { "plenary.nvim" } } },
     
     -- Load on keymap
-    { "oil.nvim", { keys = { ["<leader>tt"] = { cmd = function() require("oil").open_float() end, desc = "Open Oil file browser" } } } },
+    { "stevearc/oil.nvim", { keys = { ["<leader>tt"] = { cmd = function() require("oil").open_float() end, desc = "Open Oil file browser" } } } },
     
-    -- Load on filetype
-    { "rust-tools.nvim", { ft = { "rust" } } },
+    -- Load on filetype (blazingly fast)
+    { "simrat39/rust-tools.nvim", { ft = { "rust" } } },
     
     -- Load on events
-    { "lualine.nvim", { events = { "VimEnter" } } },
+    { "nvim-lualine/lualine.nvim", { events = { "VimEnter" } } },
+
+    -- Define the plugin in lua/config/plugins/stevearc--conform.lua
+    -- The file should return the lua table instead of defining it inline here.
+    -- Use this option when a plugin needs a lot of configuration, and you 
+    -- want to keep your init file clean.
+    graft.include("stevearc/conform.nvim"),
   }
 })
 ```
 
-### Tips and tricks
-
-Since all plugins will be checked out to the pack/ folder under your nvim config directory,
-it could be a good idea to exclude `pack/graft` from the results of fuzzy finders like `fzf-lua`:
-
-```lua
-require("fzf-lua").setup({
-  file_ignore_patterns = {
-    "pack/graft",
-  }
-})
-```
 
 ## Plugin Specification Options
 
@@ -111,6 +74,7 @@ Each plugin can have the following specification options:
 
 - `name`: Plugin name if different from repo name
 - `dir`: Directory name if different from repo name
+- `branch`: The branch or tag to follow (follows default branch if empty)
 - `settings`: Table passed to plugin's setup() function
 - `requires`: Dependencies to load before this plugin
 - `cmds`: List of commands that trigger lazy loading
@@ -120,25 +84,15 @@ Each plugin can have the following specification options:
 - `ft`: Filetypes that trigger loading
 - `keys`: Keymaps with commands and descriptions
 - `setup`: Custom setup function
+- `build`: Build command. If it starts with : it will be treated as a vim cmd, else a shell command.
 
 ## Adding/Removing Plugins
 
-You can use the [graft-git.nvim](https://github.com/tlj/graft-git.nvim) extension to handle this automatically, or
-you can handle this manually either through the terminal or through nvim commands.
+You can have `graft.nvim` automatically install/remove plugins.
 
-Add plugins as git submodules:
+```lua
+require("graft.git").setup({ install_plugins = true, remove_plugins = true })
 
-```bash
-:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/author/plugin pack/graft/start/plugin'
-# or for opt plugins
-:execute '!git -C ' .. stdpath('config') .. ' submodule add https://github.com/author/plugin pack/graft/opt/plugin'
-```
-
-Remove plugins:
-
-```bash
-:execute '!git -C ' .. stdpath('config') .. ' submodule deinit -f pack/graft/opt/plugin'
-:execute '!git -C ' .. stdpath('config') .. ' rm -f pack/graft/opt/plugin'
 ```
 
 ## Extensions interface
@@ -162,12 +116,10 @@ Available hooks:
 ### Graft Should
 
 - [x] Configure and lazy load plugins through simple configuration
-- [x] Expect plugins to be Neovim packages in pack/ folder
-- [x] Be added as a submodule itself
+- [x] Expect plugins to be Neovim packages in site/pack/ folder
 - [x] Use explicit configuration and loading
 - [x] Support running plugins out of order while retaining full configuration
 
 ### Should Not
 
-- [x] Change the filesystem (download/remove plugins)
 - [x] Implicitly load configuration
