@@ -288,7 +288,16 @@ end
 ---Setup graft-git
 ---@param opts? graft.Git.Sync Configuration options
 M.setup = function(opts)
-	graft.register_hook("post_register", function(plugins) M.sync(plugins, opts) end)
+	graft.register_hook("post_register", function(plugins)
+		-- Create a promise-like pattern with a callback
+		local setup_complete = false
+
+		-- Run sync with a completion callback
+		M.sync(plugins, opts, function() setup_complete = true end)
+
+		-- Block until setup is complete
+		vim.wait(60000, function() return setup_complete end, 100)
+	end)
 
 	vim.api.nvim_create_user_command("GraftInstall", function()
 		show_status("Installing plugins...")
