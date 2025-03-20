@@ -50,31 +50,26 @@ M.root_dir = function()
 end
 
 ---@param spec graft.Spec
----@return boolean
 M.install = function(spec)
 	show_status("Installing " .. spec.repo .. "...")
 
-	local cmd = { "git", "clone", "--depth", "1" }
+	local args = { "clone", "--depth", "1" }
 
 	if spec.branch then
-		cmd = vim.list_extend(cmd, { "-b", spec.branch })
+		args = vim.list_extend(args, { "-b", spec.branch })
 	end
 
-	cmd = vim.list_extend(cmd, { M.git_url(spec), M.full_pack_dir(spec) })
+	args = vim.list_extend(args, { M.git_url(spec), M.full_pack_dir(spec) })
 
-	local success, output = M.run_git(cmd)
-
-	if not success then
-		vim.notify("Failed to install: " .. output, vim.log.levels.ERROR)
-		show_status("Installing " .. spec.repo .. " [failed]")
-		return false
-	else
-		show_status("Installing " .. spec.repo .. " [ok]")
-	end
-
-	M.build(spec)
-
-	return success
+	graft.run("git", args, M.root_dir(), function(ok)
+		if ok then
+			show_status("Installing " .. spec.repo .. " [ok]")
+			M.build(spec)
+		else
+			vim.notify("Failed to install " .. spec.repo, vim.log.levels.ERROR)
+			show_status("Installing " .. spec.repo .. " [failed]")
+		end
+	end)
 end
 
 ---@param spec graft.Spec
@@ -94,7 +89,7 @@ M.build = function(spec)
 end
 
 ---@param spec graft.Spec
----@return boolean
+---@return boolean, string
 M.uninstall = function(spec)
 	local path = M.full_pack_dir(spec)
 
@@ -119,14 +114,14 @@ M.uninstall = function(spec)
 		local delete_result = vim.fn.delete(path, "rf")
 
 		if delete_result ~= 0 then
-			vim.notify("Failed to remove plugin " .. path .. ". Error: " .. err, vim.log.levels.ERROR)
+			vim.notify("Failed to remove plugin " .. path .. ".", vim.log.levels.ERROR)
 			error("Failed to delete directory")
 		end
 	end)
 
 	show_status("Removing " .. spec.dir .. " [ok]")
 
-	return success
+	return success, ""
 end
 
 ---@param dir string
@@ -162,8 +157,9 @@ M.update_plugin = function(spec)
 	local branch = spec.branch
 	local error
 
+	local cwd = M.full_pack_dir(spec)
 	if not branch then
-		branch, error = M.get_git_default_branch(M.full_pack_dir(spec))
+		branch, error = M.get_git_default_branch(cwd)
 		if not branch then
 			vim.print("Unable to get default branch for repo " .. spec.repo .. ": " .. error)
 			return false
@@ -171,35 +167,36 @@ M.update_plugin = function(spec)
 	end
 
 	if branch then
-		M.run_git({ "git", "-C", M.full_pack_dir(spec), "fetch", "--depth", "1", "--tags", "origin" })
-		M.run_git({ "git", "-C", M.full_pack_dir(spec), "fetch", "--depth", "1", "origin" })
-		local checkout_cmd = { "git", "-C", M.full_pack_dir(spec), "checkout", branch }
-		local success, output = M.run_git(checkout_cmd)
-		if not success then
-			vim.print("Unable to checkout " .. branch .. " for repo " .. spec.repo .. ": " .. output)
-			return false
-		end
-		local update_cmd = { "git", "-C", M.full_pack_dir(spec), "pull", "--recurse-submodules", "--update-shallow" }
-		local update_success, update_output = M.run_git(update_cmd)
-		if not update_success then
-			vim.print("Unable to update repo " .. spec.repo .. ": " .. update_output)
-			return false
-		end
+		graft.run("git", { "fetch", "--depth", "1", "--tags", "origin" }, cwd, function(tags_ok)
+			if tags_ok then
+				graft.run("git", { "fetch", "--depth", "1", "origin" }, cwd, function(branches_ok)
+					if branches_ok then
+						graft.run("git", { "checkout", branch }, cwd, function(checkout_ok)
+							if checkout_ok then
+								graft.run("git", { "pull", "--recurse-submodules", "--update-shallow" }, cwd, function(update_ok)
+									if update_ok then
+										vim.print("Update of " .. spec.repo .. " OK.")
+									else
+										vim.print(string.format("Graft: Unable to pull updates for %s", spec.repo))
+									end
+								end)
+							else
+								vim.print(string.format("Graft: Unable to checkout branch %s for %s", branch, spec.repo))
+							end
+						end)
+					else
+						vim.print(string.format("Graft: Unable to get branches for %s", spec.repo))
+					end
+				end)
+			else
+				vim.print(string.format("Graft: Unable to get tags for %s", spec.repo))
+			end
+		end)
 
 		M.build(spec)
 	end
 
 	return true
-end
-
--- Run a git command and return a type of result and output
----@param cmd table
----@return boolean, string
-M.run_git = function(cmd)
-	local output = vim.fn.system(cmd)
-	local success = vim.v.shell_error == 0
-
-	return success, output
 end
 
 -- Find all directories in pack/graft

@@ -1,5 +1,7 @@
 ---@class graft.Graft
-local M = {}
+local M = {
+	logfile = vim.fn.stdpath("log") .. "/graft.log",
+}
 
 ---@type table<string, function[]>
 M.hooks = {
@@ -80,6 +82,33 @@ end
 M.get_plugin_dir = function(repo)
 	local dir = repo:match(".*/(.*)")
 	return dir or ""
+end
+
+-- Use libuv to spawn processes
+-- Attribution for this function goes to paq-nvim
+-- https://github.com/fsouza/paq-nvim/blob/main/lua/paq.lua
+---@param process string
+---@param args table
+---@param cwd string
+---@param cb function
+M.run = function(process, args, cwd, cb)
+	local log = vim.uv.fs_open(M.logfile, "a+", 0x1A4)
+	local stderr = vim.uv.new_pipe(false)
+	stderr:open(log)
+	local handle, pid
+	handle, pid = vim.uv.spawn(
+		process,
+		{ args = args, cwd = cwd, stdio = { nil, nil, stderr }, env = {} },
+		vim.schedule_wrap(function(code)
+			vim.uv.fs_close(log)
+			stderr:close()
+			handle:close()
+			cb(code == 0)
+		end)
+	)
+	if not handle then
+		vim.notify(string.format("Graft: Failed to spawn %s (%s)", process, pid))
+	end
 end
 
 ---@param repo string
