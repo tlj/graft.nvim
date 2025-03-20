@@ -229,7 +229,8 @@ end
 
 ---@param plugins graft.Plugin
 ---@param opts? graft.Git.Sync
-M.sync = function(plugins, opts)
+---@param on_complete? function Callback to run when all operations are complete
+M.sync = function(plugins, opts, on_complete)
 	---@type graft.Git.Sync
 	local defaults = {
 		install_plugins = true,
@@ -275,7 +276,13 @@ M.sync = function(plugins, opts)
 		end
 	end
 
-	-- show_status("Graft sync complete.")
+	-- Wait for all operations to complete if a callback was provided
+	if on_complete then
+		graft.wait_for_completion(function()
+			show_status("Graft sync complete.")
+			on_complete()
+		end)
+	end
 end
 
 ---Setup graft-git
@@ -285,22 +292,42 @@ M.setup = function(opts)
 
 	vim.api.nvim_create_user_command(
 		"GraftInstall",
-		function() M.sync(graft.plugins, { install_plugins = true, remove_plugins = false, update_plugins = false }) end,
+		function() 
+			show_status("Installing plugins...")
+			M.sync(graft.plugins, { install_plugins = true, remove_plugins = false, update_plugins = false }, function()
+				vim.notify("Graft: Plugin installation complete", vim.log.levels.INFO)
+			end)
+		end,
 		{}
 	)
 	vim.api.nvim_create_user_command(
 		"GraftRemove",
-		function() M.sync(graft.plugins, { install_plugins = false, remove_plugins = true, update_plugins = false }) end,
+		function() 
+			show_status("Removing plugins...")
+			M.sync(graft.plugins, { install_plugins = false, remove_plugins = true, update_plugins = false }, function()
+				vim.notify("Graft: Plugin removal complete", vim.log.levels.INFO)
+			end)
+		end,
 		{}
 	)
 	vim.api.nvim_create_user_command(
 		"GraftUpdate",
-		function() M.sync(graft.plugins, { install_plugins = false, remove_plugins = false, update_plugins = true }) end,
+		function() 
+			show_status("Updating plugins...")
+			M.sync(graft.plugins, { install_plugins = false, remove_plugins = false, update_plugins = true }, function()
+				vim.notify("Graft: Plugin update complete", vim.log.levels.INFO)
+			end)
+		end,
 		{}
 	)
 	vim.api.nvim_create_user_command(
 		"GraftSync",
-		function() M.sync(graft.plugins, { install_plugins = true, remove_plugins = true, update_plugins = true }) end,
+		function() 
+			show_status("Syncing plugins...")
+			M.sync(graft.plugins, { install_plugins = true, remove_plugins = true, update_plugins = true }, function()
+				vim.notify("Graft: Plugin sync complete", vim.log.levels.INFO)
+			end)
+		end,
 		{}
 	)
 end

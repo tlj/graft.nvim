@@ -1,6 +1,8 @@
 ---@class graft.Graft
 local M = {
 	logfile = vim.fn.stdpath("log") .. "/graft.log",
+	pending_operations = 0,
+	on_all_complete_callback = nil,
 }
 
 ---@type table<string, function[]>
@@ -92,6 +94,9 @@ end
 ---@param cwd string
 ---@param cb function
 M.run = function(process, args, cwd, cb)
+	-- Increment pending operations counter
+	M.pending_operations = M.pending_operations + 1
+	
 	local log = vim.uv.fs_open(M.logfile, "a+", 0x1A4)
 	local stderr = vim.uv.new_pipe(false)
 	stderr:open(log)
@@ -103,11 +108,44 @@ M.run = function(process, args, cwd, cb)
 			vim.uv.fs_close(log)
 			stderr:close()
 			handle:close()
+			
+			-- Call the original callback
 			cb(code == 0)
+			
+			-- Decrement pending operations counter
+			M.pending_operations = M.pending_operations - 1
+			
+			-- Check if all operations are complete
+			if M.pending_operations == 0 and M.on_all_complete_callback then
+				local callback = M.on_all_complete_callback
+				M.on_all_complete_callback = nil
+				callback()
+			end
 		end)
 	)
 	if not handle then
 		vim.notify(string.format("Graft: Failed to spawn %s (%s)", process, pid))
+		-- Decrement counter if spawn failed
+		M.pending_operations = M.pending_operations - 1
+		
+		-- Check if all operations are complete
+		if M.pending_operations == 0 and M.on_all_complete_callback then
+			local callback = M.on_all_complete_callback
+			M.on_all_complete_callback = nil
+			callback()
+		end
+	end
+end
+
+-- Wait for all pending operations to complete
+---@param callback function Function to call when all operations are complete
+M.wait_for_completion = function(callback)
+	if M.pending_operations == 0 then
+		-- If no operations are pending, call the callback immediately
+		callback()
+	else
+		-- Otherwise, store the callback to be called when operations complete
+		M.on_all_complete_callback = callback
 	end
 end
 
