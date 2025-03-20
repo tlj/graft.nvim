@@ -38,7 +38,6 @@ end
 ---@field name? string This is the name of the plugin if the module name is different from the url name
 ---@field dir? string This is the directory name of the plugin
 ---@field branch? string The branch to follow
----@field tag? string The tag to check out
 ---@field settings? table The settings for this plugin, will be sent to setup() function
 ---@field requires? (string | graft.Plugin)[] A list of repos which has to be loaded before this one
 ---@field cmds? string[] A list of commands which will load the plugin
@@ -371,7 +370,7 @@ M.load_plugin_path = function(dir)
 	end
 
 	pcall(function() vim.cmd("packadd " .. dir) end)
-	vim.cmd("packloadall!")
+	-- vim.cmd("packloadall!")
 end
 
 -- Load the required plugins
@@ -409,29 +408,33 @@ M.load = function(repo)
 		error("Tried to load unregistered plugin: " .. repo)
 	end
 
-	-- If a directory is set, we try to packadd it
-	M.load_plugin_path(spec.dir)
-
 	-- Load required plugins first
 	M.load_required(spec)
 
-	-- Find the correct path to require if dir is set
-	local require_path = M.find_require_path(spec.dir)
-	-- if spec.dir ~= "" and not require_path then
-	-- 	vim.notify("Unable to find require_path for " .. spec.dir, vim.log.levels.ERROR)
-	-- end
+	-- If a directory is set, we try to packadd it
+	M.load_plugin_path(spec.dir)
 
-	-- Require plugin, fall back to spec.name if no require
-	-- path is found automatically. Worst case a custom setup()
+	-- Require plugin, fall back to require_path if we are unable to
+	-- require on plugin name. Worst case a custom setup()
 	-- is needed to require the correct path.
-	local ok, p = pcall(require, require_path or spec.name)
+	local ok, p = pcall(require, spec.name)
 	if not ok then
-		p = nil
-		-- vim.notify(spec.repo .. " (" .. spec.name .. ") (" .. spec.dir .. ") could not be required.")
+		package.loaded[spec.name] = nil
+		local require_path = M.find_require_path(spec.dir)
+		if require_path then
+			-- vim.print("Loading " .. spec.name .. " failed, trying " .. vim.inspect(require_path))
+			ok, p = pcall(require, require_path)
+			if not ok then
+				-- vim.print(" .. that also failed.")
+				package.loaded[require_path] = nil
+			end
+		else
+			-- vim.print("Unable to load " .. spec.name .. ", found no fallback require path.")
+		end
 	end
 
 	-- Try to find the correct setup function to call
-	if spec.setup and type(spec.setup) == "function" then
+	if p ~= nil and spec.setup and type(spec.setup) == "function" then
 		spec.setup(spec.settings)
 	elseif p ~= nil and p.setup and type(p.setup) == "function" then
 		p.setup(spec.settings)
