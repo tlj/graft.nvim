@@ -154,22 +154,14 @@ function M.update_display()
 		end
 		
 		local status_display = status.status
-		local status_color = ""
 		
-		if status.status == "complete" then
-			status_color = "%#DiffAdd#"
-		elseif status.status == "failed" then
-			status_color = "%#DiffDelete#"
-		elseif status.status == "installing" or status.status == "updating" or status.status == "removing" then
-			status_color = "%#DiffChange#"
-		end
-		
-		local line = string.format("%-40s %s%-18s%s %s", 
+		-- Format the line without color codes
+		local line = string.format("%-40s %-18s %s", 
 			repo_display, 
-			status_color, 
 			status_display, 
-			"%#Normal#",
 			status.message or "")
+		
+		table.insert(lines, line)
 		
 		table.insert(lines, line)
 	end
@@ -188,6 +180,36 @@ function M.update_display()
 	
 	-- Update the buffer content
 	vim.api.nvim_buf_set_lines(M.bufnr, 0, -1, false, lines)
+	
+	-- Apply highlighting to status columns
+	local ns_id = vim.api.nvim_create_namespace("GraftStatusHighlight")
+	vim.api.nvim_buf_clear_namespace(M.bufnr, ns_id, 0, -1)
+	
+	-- Start from line 3 (after header)
+	local line_idx = M.header_lines - 1
+	for _, status in ipairs(sorted_plugins) do
+		local highlight_group = "Normal"
+		
+		if status.status == "complete" then
+			highlight_group = "DiffAdd"
+		elseif status.status == "failed" then
+			highlight_group = "DiffDelete"
+		elseif status.status == "installing" or status.status == "updating" or status.status == "removing" then
+			highlight_group = "DiffChange"
+		end
+		
+		-- Highlight the status column (column 40 to 58)
+		vim.api.nvim_buf_add_highlight(
+			M.bufnr,
+			ns_id,
+			highlight_group,
+			line_idx,
+			40,
+			58
+		)
+		
+		line_idx = line_idx + 1
+	end
 	
 	-- Resize window if needed
 	if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then

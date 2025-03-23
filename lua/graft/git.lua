@@ -294,10 +294,15 @@ M.sync = function(plugins, opts, on_complete)
 	-- Reset the status window
 	status_window.reset()
 	
-	-- Register plugins in the status window
-	for _, spec in pairs(plugins) do
-		if spec.repo and spec.repo ~= "" then
-			update_plugin_status(spec.repo, "pending")
+	-- Only register plugins that will have operations performed on them
+	if opts.install_plugins or opts.update_plugins then
+		for _, spec in pairs(plugins) do
+			if spec.repo and spec.repo ~= "" then
+				if (opts.install_plugins and not M.is_installed(spec)) or 
+				   (opts.update_plugins and M.is_installed(spec)) then
+					update_plugin_status(spec.repo, "pending")
+				end
+			end
 		end
 	end
 
@@ -336,9 +341,14 @@ M.sync = function(plugins, opts, on_complete)
 		end
 	end
 
-	-- Always create the status window to show progress
-	status_window.create()
-	status_window.add_message("Starting plugin operations...")
+	-- Check if we have any operations to perform
+	local has_operations = check_operations()
+	
+	-- Only create the status window if there are operations to perform
+	if has_operations then
+		status_window.create()
+		status_window.add_message("Starting plugin operations...")
+	end
 	graft.log(
 		"Starting plugin sync operation with options: "
 			.. "install="
