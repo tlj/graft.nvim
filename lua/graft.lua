@@ -5,6 +5,18 @@ local M = {
 	on_all_complete_callback = nil,
 }
 
+-- Log a message to the log file with timestamp
+---@param message string The message to log
+M.log = function(message)
+	local log = vim.uv.fs_open(M.logfile, "a+", 0x1A4)
+	if log then
+		local timestamp = os.date("%Y-%m-%d %H:%M:%S")
+		local formatted_message = string.format("[%s] %s\n", timestamp, message)
+		vim.uv.fs_write(log, formatted_message, -1)
+		vim.uv.fs_close(log)
+	end
+end
+
 ---@type table<string, function[]>
 M.hooks = {
 	pre_setup = {},
@@ -104,6 +116,10 @@ M.run = function(process, args, cwd, cb)
 		stderr:open(log)
 	end
 	local handle, pid
+	M.log(
+		string.format("Running command: %s %s in directory: %s", process, table.concat(args or {}, " "), cwd or "current")
+	)
+
 	handle, pid = vim.uv.spawn(
 		process,
 		{ args = args, cwd = cwd, stdio = { nil, nil, stderr }, env = {} },
@@ -560,6 +576,46 @@ M.include = function(repo)
 	end
 
 	return spec
+end
+
+-- Show the log file in a new buffer
+M.show_log = function()
+	-- Check if log file exists
+	if vim.fn.filereadable(M.logfile) == 0 then
+		vim.notify("No log file found at " .. M.logfile, vim.log.levels.WARN)
+		return
+	end
+
+	-- Create a new buffer
+	local buf = vim.api.nvim_create_buf(false, true)
+	vim.api.nvim_buf_set_name(buf, "GraftLog")
+
+	-- Read log file content
+	local lines = {}
+	local file = io.open(M.logfile, "r")
+	if file then
+		for line in file:lines() do
+			table.insert(lines, line)
+		end
+		file:close()
+	end
+
+	-- Set buffer content
+	vim.api.nvim_buf_set_lines(buf, 0, -1, false, lines)
+
+	-- Set buffer options
+	vim.api.nvim_buf_set_option(buf, "modifiable", false)
+	vim.api.nvim_buf_set_option(buf, "buftype", "nofile")
+
+	-- Open the buffer in a new window
+	vim.cmd("vsplit")
+	vim.api.nvim_win_set_buf(vim.api.nvim_get_current_win(), buf)
+
+	-- Add keymaps for the log buffer
+	vim.api.nvim_buf_set_keymap(buf, "n", "q", ":close<CR>", { noremap = true, silent = true })
+
+	-- Set buffer filetype for potential syntax highlighting
+	vim.api.nvim_buf_set_option(buf, "filetype", "log")
 end
 
 return M

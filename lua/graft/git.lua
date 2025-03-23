@@ -54,6 +54,7 @@ end
 ---@param spec graft.Spec
 M.install = function(spec)
 	show_status("Installing " .. spec.repo .. "...")
+	graft.log("Starting installation of " .. spec.repo)
 
 	local args = { "clone", "--depth", "1" }
 
@@ -77,6 +78,14 @@ end
 ---@param spec graft.Spec
 M.build = function(spec)
 	if spec.build then
+		graft.log(
+			"Building "
+				.. spec.repo
+				.. " with "
+				.. (spec.build:match("^:") and "vim command" or "system command")
+				.. ": "
+				.. spec.build
+		)
 		if spec.build:match("^:") ~= nil then
 			vim.notify(" * Building " .. spec.repo .. " with nvim command " .. spec.build)
 			vim.cmd(spec.build)
@@ -107,6 +116,8 @@ M.uninstall = function(spec)
 	if path:match("^/+$") or path:match("^" .. vim.fn.expand("~") .. "/?$") then
 		return false, "Preventing deletion of root or home directory"
 	end
+
+	graft.log("Uninstalling plugin: " .. spec.repo .. " from path: " .. path)
 
 	-- First, try to remove the directory recursively
 	local success, _ = pcall(function()
@@ -156,47 +167,51 @@ end
 ---@param spec graft.Spec
 ---@return boolean
 M.update_plugin = function(spec)
-	local branch = spec.branch
-	local error
+	graft.log(
+		"Starting update of " .. spec.repo .. (spec.branch and (" on branch " .. spec.branch) or " on default branch")
+	)
 
 	local cwd = M.full_pack_dir(spec)
+	local branch = spec.branch
+
+	-- If no branch specified, try to get the default branch
 	if not branch then
 		branch, error = M.get_git_default_branch(cwd)
 		if not branch then
-			vim.print("Unable to get default branch for repo " .. spec.repo .. ": " .. error)
+			vim.notify("Unable to get default branch for repo " .. spec.repo .. ": " .. error, vim.log.levels.ERROR)
 			return false
 		end
 	end
 
-	if branch then
-		graft.run("git", { "fetch", "--depth", "1", "--tags", "origin" }, cwd, function(tags_ok)
-			if tags_ok then
-				graft.run("git", { "fetch", "--depth", "1", "origin" }, cwd, function(branches_ok)
-					if branches_ok then
-						graft.run("git", { "checkout", branch }, cwd, function(checkout_ok)
-							if checkout_ok then
-								graft.run("git", { "pull", "--recurse-submodules", "--update-shallow" }, cwd, function(update_ok)
-									if update_ok then
-										show_status("Update of " .. spec.repo .. " OK.")
-									else
-										vim.print(string.format("Graft: Unable to pull updates for %s", spec.repo))
-									end
-								end)
-							else
-								vim.print(string.format("Graft: Unable to checkout branch %s for %s", branch, spec.repo))
-							end
-						end)
-					else
-						vim.print(string.format("Graft: Unable to get branches for %s", spec.repo))
-					end
-				end)
-			else
-				vim.print(string.format("Graft: Unable to get tags for %s", spec.repo))
-			end
-		end)
+	-- Use a single fetch command with appropriate flags
+	graft.run("git", { "fetch", "--depth", "1", "--tags", "--prune", "origin" }, cwd, function(fetch_ok)
+		if not fetch_ok then
+			vim.notify("Failed to fetch updates for " .. spec.repo, vim.log.levels.ERROR)
+			show_status("Update of " .. spec.repo .. " [failed]")
+			return
+		end
 
-		M.build(spec)
-	end
+		-- Checkout and pull in one step using reset to origin/branch
+		local reset_cmd = { "reset", "--hard", "origin/" .. branch }
+		graft.run("git", reset_cmd, cwd, function(reset_ok)
+			if not reset_ok then
+				vim.notify("Failed to update " .. spec.repo .. " to latest " .. branch, vim.log.levels.ERROR)
+				show_status("Update of " .. spec.repo .. " [failed]")
+				return
+			end
+
+			-- Update submodules if any
+			graft.run("git", { "submodule", "update", "--init", "--recursive" }, cwd, function(submodule_ok)
+				if not submodule_ok then
+					vim.notify("Warning: Submodule update failed for " .. spec.repo, vim.log.levels.WARN)
+					-- Continue anyway as the main repo update succeeded
+				end
+
+				show_status("Update of " .. spec.repo .. " [ok]")
+				M.build(spec)
+			end)
+		end)
+	end)
 
 	return true
 end
@@ -284,6 +299,15 @@ M.sync = function(plugins, opts, on_complete)
 	if check_operations() then
 		status_window.create()
 		status_window.add_message("Starting plugin operations...")
+		graft.log(
+			"Starting plugin sync operation with options: "
+				.. "install="
+				.. tostring(opts.install_plugins)
+				.. ", update="
+				.. tostring(opts.update_plugins)
+				.. ", remove="
+				.. tostring(opts.remove_plugins)
+		)
 	end
 
 	if opts.remove_plugins then
@@ -380,6 +404,8 @@ M.setup = function(opts)
 			status_window.reopen()
 		end
 	end, { desc = "Toggle Graft status window" })
+
+	vim.api.nvim_create_user_command("GraftLog", function() graft.show_log() end, { desc = "Show Graft operation log" })
 end
 
 return M
