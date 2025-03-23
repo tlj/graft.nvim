@@ -191,8 +191,18 @@ M.update_plugin = function(spec)
 			return
 		end
 
-		-- Checkout and pull in one step using reset to origin/branch
-		local reset_cmd = { "reset", "--hard", "origin/" .. branch }
+		-- Check if branch is a tag (starts with 'v' followed by numbers and dots)
+		local is_tag = branch:match("^v%d+%.%d+%.%d+$") ~= nil
+	
+		local reset_cmd
+		if is_tag then
+			-- For tags, use checkout directly
+			reset_cmd = { "checkout", branch, "--force" }
+		else
+			-- For branches, reset to origin/branch
+			reset_cmd = { "reset", "--hard", "origin/" .. branch }
+		end
+	
 		graft.run("git", reset_cmd, cwd, function(reset_ok)
 			if not reset_ok then
 				vim.notify("Failed to update " .. spec.repo .. " to latest " .. branch, vim.log.levels.ERROR)
