@@ -193,6 +193,7 @@ function M.update_display()
 	if M.winnr and vim.api.nvim_win_is_valid(M.winnr) then
 		local width, height = calculate_window_size()
 		vim.api.nvim_win_set_config(M.winnr, {
+			relative = "editor",
 			width = width,
 			height = height,
 			col = math.floor((vim.o.columns - width) / 2),
