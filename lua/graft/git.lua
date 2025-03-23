@@ -306,7 +306,7 @@ M.sync = function(plugins, opts, on_complete)
 	end
 
 	-- Only create the status window if we have operations to perform
-	if check_operations() then
+	if check_operations() or opts.update_plugins then
 		status_window.create()
 		status_window.add_message("Starting plugin operations...")
 		graft.log(
@@ -340,21 +340,33 @@ M.sync = function(plugins, opts, on_complete)
 		if opts.install_plugins and not M.is_installed(spec) then
 			show_status("Installing " .. spec.repo .. "...")
 			M.install(spec)
-		elseif opts.update_plugins then
+		elseif opts.update_plugins and spec.repo and spec.repo ~= "" then
 			show_status("Updating " .. spec.repo .. "...")
 			M.update_plugin(spec)
+			-- Force has_operations to true for updates
+			has_operations = true
 		end
 	end
 
 	-- Wait for all operations to complete if a callback was provided
 	if on_complete then
 		graft.wait_for_completion(function()
-			show_status("Graft sync complete.")
+			if status_window.active then
+				show_status("Graft sync complete.")
+			end
 			on_complete()
 		end)
 	elseif status_window.active then
 		-- If no callback but window is active, close it after operations complete
-		graft.wait_for_completion(function() show_status("Graft sync complete.") end)
+		graft.wait_for_completion(function() 
+			show_status("Graft sync complete.")
+			-- Don't close immediately to allow user to see the final status
+			vim.defer_fn(function()
+				if status_window.active then
+					status_window.close()
+				end
+			end, 3000) -- Close after 3 seconds
+		end)
 	end
 end
 
