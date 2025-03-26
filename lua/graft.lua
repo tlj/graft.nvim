@@ -45,6 +45,7 @@ end
 ---@field branch? string The branch to follow
 ---@field settings? table The settings for this plugin, will be sent to setup() function
 ---@field requires? (string | graft.Plugin)[] A list of repos which has to be loaded before this one
+---@field dependencies? (string | graft.Plugin)[] A list of repos which has to be loaded after this one, but might be required by the plugin
 ---@field cmds? string[] A list of commands which will load the plugin
 ---@field events? string[] A list of events which will load the plugin
 ---@field pattern? string Pattern for lazy loading auto commands (events, ft)
@@ -181,7 +182,10 @@ M.register = function(repo, spec)
 	M.plugins[repo] = spec
 
 	-- Register plugin requirements
-	M.register_requirements(spec)
+	M.register_requirements(spec.requires)
+
+	-- Register plugin dependencies
+	M.register_requirements(spec.dependencies)
 
 	-- Register lazy loading commands
 	M.register_cmds(spec)
@@ -289,12 +293,12 @@ M.find_require_path = function(plugin_path)
 end
 
 -- Register the plugin requirements recursively
----@param spec graft.Spec
-M.register_requirements = function(spec)
+---@param requires graft.Spec[]
+M.register_requirements = function(requires)
 	-- If we require a plugin but it is not registered (yet), let's register it.
 	-- Since the requires entries are of type graft.Plugin, they can set the
 	-- plugin spec when they are defined as requirement.
-	for _, req in ipairs(spec.requires or {}) do
+	for _, req in ipairs(requires or {}) do
 		local name = ""
 		local opts = {}
 		if type(req) == "string" then
@@ -455,8 +459,9 @@ M.load_plugin_path = function(dir)
 end
 
 -- Load the required plugins
-M.load_required = function(repo)
-	for _, plugin in ipairs(repo.requires or {}) do
+---@param requires table
+M.load_required = function(requires)
+	for _, plugin in ipairs(requires or {}) do
 		local name
 		if type(plugin) == "string" then
 			name = plugin
@@ -490,10 +495,12 @@ M.load = function(repo)
 	end
 
 	-- Load required plugins first
-	M.load_required(spec)
+	M.load_required(spec.requires)
 
 	-- If a directory is set, we try to packadd it
 	M.load_plugin_path(spec.dir)
+
+	M.load_required(spec.dependencies)
 
 	-- Require plugin, fall back to require_path if we are unable to
 	-- require on plugin name. Worst case a custom setup()
